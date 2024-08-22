@@ -7,7 +7,7 @@ COS30018-Intelligent Systems - Semester 2 2024
 
 1. Clone this repository
 2. Either you can run with Docker or using Python virtual environment:
-<u>Python virtual environment:</u>
+### Python virtual environment:
 Bash file I have created to automate the set up the environment and downloading requirements files - this will create `.venv` your virtual Python environment
 ```bash
 ./init.sh
@@ -17,7 +17,7 @@ Bash file I have created to automate the set up the environment and downloading 
 source .venv/bin/activate
 ```
 __OR__
-<u>Docker Container:</u>
+### Docker Container:
 - With this you will need this [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - Making sure that you have installed it properly and running in the background before moving into next step
 - Run this command in your Shell it will automatically setting up container for you.
