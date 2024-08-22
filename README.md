@@ -16,7 +16,7 @@ Bash file I have created to automate the set up the environment and downloading 
 ## If there is any issue run this first at your <root>
 source .venv/bin/activate
 ```
-__OR__
+---------------------(__OR__)---------------------
 ### Docker Container:
 - With this you will need this [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - Making sure that you have installed it properly and running in the background before moving into next step
