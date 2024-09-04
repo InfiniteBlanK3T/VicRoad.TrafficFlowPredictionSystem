@@ -30,7 +30,7 @@ Then installing python into it:
 Set the version you want to install
 - `pyenv local 3.10.12`
 Installing python onto that Virtual Env
-- `pyenv -m venv .venv`
+- `pyenv exec python -m venv .venv`
 4. Installing all the dependencies -(requirements.txt) 
 `pip install -r requirements.txt`
 5. Activate virtual environment
