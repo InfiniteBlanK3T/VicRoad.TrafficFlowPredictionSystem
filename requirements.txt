@@ -1,8 +1,7 @@
-numpy
-pandas
-scikit-learn
-tensorflow
-keras
-matplotlib
-seaborn
-flask
+numpy==1.26.4
+pandas==2.2.2
+scikit-learn==1.5.1
+tensorflow==2.15.0
+keras==2.15.0
+matplotlib==3.9.2
+pydot==3.0.1

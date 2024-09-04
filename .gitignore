@@ -10,6 +10,8 @@ __pycache__/
 node_modules/
 dist
 
+# Customed
+examples/model/
 
 # Distribution / packaging
 .Python
@@ -36,6 +38,7 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+.python-version
 
 # Installer logs
 pip-log.txt
