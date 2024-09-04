@@ -21,25 +21,16 @@ COS30018-Intelligent Systems - Semester 2 2024
 - `pyenv install <python version here>`
 - `pyenv install 3.10.12`
 
-3. Create Virtual Environment Directory and Requirements file for automatic installation - with Python version installed above:
-First create a virtual environment folder (.venv - what ever name you like but `.venv` is the standard name)  in which you would put all your dependencies here:
+3. Create Virtual Environment Directory - with Python version installed above:
+(.venv - what ever name you like I like .venv) in which you would put all your dependencies in this Directory here:
 - `mkdir .venv`
-- `mkdir requirements.txt` copy the file down below to this & save it:
-```
-numpy==1.26.4
-pandas==2.2.2
-scikit-learn==1.5.1
-tensorflow==2.15.0
-keras==2.15.0
-matplotlib==3.9.2
-pydot==3.0.1
-```
+
 
 Then installing python into it:
 Set the version you want to install
 - `pyenv local 3.10.12`
 Installing python onto that Virtual Env
-- `pyenv -m venv .venv`
+- `pyenv exec python -m venv .venv`
 4. Installing all the dependencies -(requirements.txt) 
 `pip install -r requirements.txt`
 5. Activate virtual environment
