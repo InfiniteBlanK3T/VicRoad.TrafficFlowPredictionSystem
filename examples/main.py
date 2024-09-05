@@ -91,6 +91,7 @@ def plot_results(y_true, y_preds, names):
     fig.autofmt_xdate()
 
     plt.show()
+    plt.savefig("images/graph.png")
 
 
 def main():
