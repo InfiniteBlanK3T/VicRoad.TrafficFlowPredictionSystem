@@ -5,7 +5,7 @@ import math
 import warnings
 import numpy as np
 import pandas as pd
-from data.data import process_data
+from data.data import process_data, split_data
 from keras.models import load_model
 from keras.utils import plot_model
 import sklearn.metrics as metrics
@@ -97,17 +97,26 @@ def main():
     lstm = load_model('model/lstm.h5')
     gru = load_model('model/gru.h5')
     saes = load_model('model/saes.h5')
+    #my_model = load_model('model/my_model.h5')
     models = [lstm, gru, saes]
     names = ['LSTM', 'GRU', 'SAEs']
 
     lag = 12
-    file1 = 'data/train.csv'
-    file2 = 'data/test.csv'
-    _, _, X_test, y_test, scaler = process_data(file1, file2, lag)
+    ## Default function
+    # file1 = 'data/train.csv'
+    # file2 = 'data/test.csv'
+    # _, _, X_test, y_test, scaler = process_data(file1, file2, lag)
+    
+    ## Making changes in order to read the file
+    file_path = 'data/Traffic_Count_Locations_with_LONG_LAT.csv'  
+    X, y, scaler = process_data(file_path, lag)
+    _, _, X_test, y_test = split_data(X, y)
+    
     y_test = scaler.inverse_transform(y_test.reshape(-1, 1)).reshape(1, -1)[0]
 
     y_preds = []
     for name, model in zip(names, models):
+        #if name == 'SAEs' or name == 'My Model':
         if name == 'SAEs':
             X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1]))
         else:
