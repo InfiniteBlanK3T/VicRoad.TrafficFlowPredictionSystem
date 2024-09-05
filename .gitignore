@@ -10,8 +10,6 @@ __pycache__/
 node_modules/
 dist
 
-# Customed
-examples/model/
 
 # Distribution / packaging
 .Python
