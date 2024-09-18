@@ -11,6 +11,7 @@ from keras.utils import plot_model
 import sklearn.metrics as metrics
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import datetime
 warnings.filterwarnings("ignore")
 
 
@@ -71,6 +72,9 @@ def plot_results(y_true, y_preds, names):
         y_pred: List/ndarray, predicted data.
         names: List, Method names.
     """
+    now = datetime.datetime.now()
+    formatted_date_time = now.strftime("%Y%m%d-%H%M")
+    
     d = '2016-3-4 00:00'
     x = pd.date_range(d, periods=288, freq='5min')
 
@@ -91,15 +95,16 @@ def plot_results(y_true, y_preds, names):
     fig.autofmt_xdate()
 
     plt.show()
-    plt.savefig("images/TrafficCountLocation/graphTrafficCount.png")
+    plt.savefig(f"images/TrafficCountLocation/{formatted_date_time}-graphTrafficCount.png")
 
 def main():
-    lstm = load_model('model/TrafficCountLocation/lstm.h5')
-    gru = load_model('model/TrafficCountLocation/gru.h5')
-    saes = load_model('model/TrafficCountLocation/saes.h5')
-    models = [lstm, gru, saes]
-    names = ['LSTM', 'GRU', 'SAEs']
-
+    models = ['lstm', 'gru', 'bilstm', 'cnnlstm', 'saes']
+    loaded_models = []
+    for m in models:
+        try:
+            loaded_models.append(load_model(f'model/TrafficCountLocation/{m}.h5'))
+        except:
+            print(f"Could not load model: {m}")
     lag = 12
 
     
@@ -111,20 +116,21 @@ def main():
     y_test = scaler.inverse_transform(y_test.reshape(-1, 1)).reshape(1, -1)[0]
 
     y_preds = []
-    for name, model in zip(names, models):
-        if name == 'SAEs':
-            X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1]))
-        else:
-            X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-        file = 'images/' + name +'.png'
-        plot_model(model, to_file=file, show_shapes=True)
-        predicted = model.predict(X_test)
+    for name, model in zip(models, loaded_models):
+        if name == 'saes':
+            X_test_reshaped = np.reshape(X_test, (X_test.shape[0], X_test.shape[1]))
+        elif name in ['lstm', 'gru', 'bilstm']:
+            X_test_reshaped = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+        elif name == 'cnnlstm':
+            X_test_reshaped = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+
+        predicted = model.predict(X_test_reshaped)
         predicted = scaler.inverse_transform(predicted.reshape(-1, 1)).reshape(1, -1)[0]
         y_preds.append(predicted[:288])
         print(name)
         eva_regress(y_test, predicted)
 
-    plot_results(y_test[: 288], y_preds, names)
+    plot_results(y_test[: 288], y_preds, models)
 
 
 if __name__ == '__main__':

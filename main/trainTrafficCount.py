@@ -32,9 +32,9 @@ def train_model(model, X_train, y_train, name, config):
         epochs=config["epochs"],
         validation_split=0.05)
 
-    model.save('model/TrafficCountLocation/' + name + '-TrafficCount'+ '.h5')
+    model.save('model/TrafficCountLocation/' + name + '.h5')
     df = pd.DataFrame.from_dict(hist.history)
-    df.to_csv('model/TrafficCountLocation/' + name + '-TrafficCount' +' loss.csv', encoding='utf-8', index=False)
+    df.to_csv('model/TrafficCountLocation/' + name +' loss.csv', encoding='utf-8', index=False)
 
 
 def train_seas(models, X_train, y_train, name, config):
@@ -80,7 +80,7 @@ def main(argv):
     parser.add_argument(
         "--model",
         default="lstm",
-        help="Model to train.")
+        help="Model to train: lstm, gru, bilstm, cnnlstm, saes")
     args = parser.parse_args()
 
     lag = 12
@@ -98,18 +98,25 @@ def main(argv):
     if args.model == 'lstm':
         X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
         m = model.get_lstm([12, 64, 64, 1])
-        train_model(m, X_train, y_train, args.model, config)
     elif args.model == 'gru':
         X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
         m = model.get_gru([12, 64, 64, 1])
-        train_model(m, X_train, y_train, args.model, config)
+    elif args.model == 'bilstm':
+        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+        m = model.get_bidirectional_lstm([lag, 64, 64, 1])
+    elif args.model == 'cnnlstm':
+        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+        m = model.get_cnn_lstm([lag, 64, 64, 1], n_steps=lag, n_features=1)
     elif args.model == 'saes':
         X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1]))
-        models = model.get_saes([12, 400, 400, 400, 1])
-        train_seas(models, X_train, y_train, args.model, config)
-    else:
-        print('Model not found.')
+        m = model.get_saes([12, 400, 400, 400, 1])
+        train_seas(m, X_train, y_train, args.model, config)
         return
+    else:
+        print(f"Unknown model: {args.model}")
+        return
+
+    train_model(m, X_train, y_train, args.model, config)
 
 if __name__ == '__main__':
     main(sys.argv)

@@ -1,18 +1,49 @@
 """
 Defination of NN model
 """
-from keras.layers import Dense, Dropout, Activation, LSTM, GRU
+from keras.layers import Dense, Dropout, Activation, LSTM, GRU, Conv1D, MaxPooling1D, Flatten, TimeDistributed, Bidirectional
 from keras.models import Sequential
 
+''''''''' NEW MACHINE LEARNING TECHNIQUES'''''
 
-def get_my_model(units):
+def get_bidirectional_lstm(units):
+    """Bidirectional LSTM
+    Build Bidirectional LSTM Model.
+
+    # Arguments
+        units: List(int), number of input, hidden, and output units.
+    # Returns
+        model: Model, nn model.
+    """
     model = Sequential()
-    model.add(Dense(units[1], input_dim=units[0], activation='relu'))
+    model.add(Bidirectional(LSTM(units[1], return_sequences=True), input_shape=(units[0], 1)))
+    model.add(Bidirectional(LSTM(units[2])))
     model.add(Dropout(0.2))
-    model.add(Dense(units[2], input_dim=units[0], activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(Dense(units[3], activation='sigmoid'))
+    model.add(Dense(units[3], activation='linear'))
     return model
+
+def get_cnn_lstm(units, n_steps, n_features):
+    """CNN-LSTM
+    Build hybrid CNN-LSTM Model.
+
+    # Arguments
+        units: List(int), number of input, hidden, and output units.
+        n_steps: int, number of time steps.
+        n_features: int, number of features.
+    # Returns
+        model: Model, nn model.
+    """
+    model = Sequential()
+    model.add(Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(n_steps, n_features)))
+    model.add(MaxPooling1D(pool_size=2))
+    model.add(Conv1D(filters=64, kernel_size=3, activation='relu'))
+    model.add(MaxPooling1D(pool_size=2))
+    model.add(LSTM(units[1], return_sequences=True))
+    model.add(LSTM(units[2]))
+    model.add(Dropout(0.2))
+    model.add(Dense(units[3], activation='linear'))
+    return model
+
 
 def get_lstm(units):
     """LSTM(Long Short-Term Memory)
@@ -31,7 +62,6 @@ def get_lstm(units):
     model.add(Dense(units[3], activation='sigmoid'))
 
     return model
-
 
 def get_gru(units):
     """GRU(Gated Recurrent Unit)
@@ -71,7 +101,6 @@ def _get_sae(inputs, hidden, output):
     model.add(Dense(output, activation='sigmoid'))
 
     return model
-
 
 def get_saes(layers):
     """SAEs(Stacked Auto-Encoders)

@@ -80,11 +80,11 @@ def main(argv):
     parser.add_argument(
         "--model",
         default="lstm",
-        help="Model to train.")
+        help="Model to train: lstm, gru, bilstm, cnnlstm, saes")
     args = parser.parse_args()
 
     lag = 12
-    config = {"batch": 256, "epochs": 5}
+    config = {"batch": 256, "epochs": 3}
     file1 = 'data/train.csv'
     file2 = 'data/test.csv'
     X_train, y_train, _, _, _ = process_data(file1, file2, lag)
@@ -92,16 +92,25 @@ def main(argv):
     if args.model == 'lstm':
         X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
         m = model.get_lstm([12, 64, 64, 1])
-        train_model(m, X_train, y_train, args.model, config)
-    if args.model == 'gru':
+    elif args.model == 'gru':
         X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
         m = model.get_gru([12, 64, 64, 1])
-        train_model(m, X_train, y_train, args.model, config)
-    if args.model == 'saes':
+    elif args.model == 'bilstm':
+        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+        m = model.get_bidirectional_lstm([lag, 64, 64, 1])
+    elif args.model == 'cnnlstm':
+        X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+        m = model.get_cnn_lstm([lag, 64, 64, 1], n_steps=lag, n_features=1)
+    elif args.model == 'saes':
         X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1]))
         m = model.get_saes([12, 400, 400, 400, 1])
         train_seas(m, X_train, y_train, args.model, config)
+        return
+    else:
+        print(f"Unknown model: {args.model}")
+        return
 
+    train_model(m, X_train, y_train, args.model, config)
 
 if __name__ == '__main__':
     main(sys.argv)

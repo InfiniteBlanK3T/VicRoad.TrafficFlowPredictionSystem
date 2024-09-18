@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import datetime, timedelta
 import seaborn as sns
+import datetime
 warnings.filterwarnings("ignore")
 
 def MAPE(y_true, y_pred):
@@ -70,6 +71,9 @@ def plot_results(y_true, y_preds, names):
         y_pred: List/ndarray, predicted data.
         names: List, Method names.
     """
+    now = datetime.datetime.now()
+    formatted_date_time = now.strftime("%Y%m%d-%H%M")
+    
     sns.set_style("whitegrid")
     plt.figure(figsize=(16, 10))
 
@@ -101,39 +105,8 @@ def plot_results(y_true, y_preds, names):
     
     plt.tight_layout()
 
-    plt.savefig("images/ScatsData-Bundoora/ScatsData_prediction_improved.png", dpi=300, bbox_inches='tight')
-    
+    plt.savefig(f"images/ScatsData-Bundoora/{formatted_date_time}-ScatsData_prediction_improved.png", dpi=300, bbox_inches='tight')
     plt.show()
-
-    """Plot
-    Plot the true data and predicted data.
-
-    # Arguments
-        y_true: List/ndarray, true data.
-        y_pred: List/ndarray, predicted data.
-        names: List, Method names.
-    """
-    d = '2006-10-1 00:00'
-    x = pd.date_range(d, periods=96, freq='15min')
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-
-    ax.plot(x, y_true, label='True Data')
-    for name, y_pred in zip(names, y_preds):
-        ax.plot(x, y_pred, label=name)
-
-    plt.legend()
-    plt.grid(True)
-    plt.xlabel('Time of Day')
-    plt.ylabel('Flow')
-
-    date_format = mpl.dates.DateFormatter("%H:%M")
-    ax.xaxis.set_major_formatter(date_format)
-    fig.autofmt_xdate()
-
-    plt.show()
-    plt.savefig("images/ScatsData-Bundoora/ScatsData_prediction.png")
 
 def plot_individual_results(y_true, y_preds, names):
     """Plot individual results for each model.
@@ -143,6 +116,9 @@ def plot_individual_results(y_true, y_preds, names):
         y_pred: List/ndarray, predicted data.
         names: List, Method names.
     """
+    now = datetime.datetime.now()
+    formatted_date_time = now.strftime("%Y%m%d-%H%M")
+    
     sns.set_style("whitegrid")
     fig, axs = plt.subplots(len(names), 1, figsize=(16, 6*len(names)), sharex=True)
     
@@ -167,15 +143,17 @@ def plot_individual_results(y_true, y_preds, names):
         ax.xaxis.set_major_locator(mdates.HourLocator(interval=3))
 
     plt.tight_layout()
-    plt.savefig("images/ScatsData-Bundoora/ScatsData_individual_predictions.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"images/ScatsData-Bundoora/{formatted_date_time}-ScatsData_individual_predictions.png", dpi=300, bbox_inches='tight')
     plt.show()
 
 def main():
-    lstm = load_model('model/ScatsData-Bundoora/lstm.h5')
-    gru = load_model('model/ScatsData-Bundoora/gru.h5')
-    saes = load_model('model/ScatsData-Bundoora/saes.h5')
-    models = [lstm, gru, saes]
-    names = ['LSTM', 'GRU', 'SAEs']
+    models = ['lstm', 'gru', 'bilstm', 'cnnlstm', 'saes']
+    loaded_models = []
+    for m in models:
+        try:
+            loaded_models.append(load_model(f'model/ScatsData-Bundoora/{m}.h5'))
+        except:
+            print(f"Could not load model: {m}")
 
     lag = 12
     file_path = 'data/Scats-Data-October-2006-Bundoora.csv'
@@ -183,22 +161,23 @@ def main():
     y_test = scaler.inverse_transform(y_test.reshape(-1, 1)).reshape(1, -1)[0]
 
     y_preds = []
-    for name, model in zip(names, models):
-        if name == 'SAEs':
+    for name, model in zip(models, loaded_models):
+        if name == 'saes':
             X_test_reshaped = np.reshape(X_test, (X_test.shape[0], X_test.shape[1]))
-        else:
+        elif name in ['lstm', 'gru', 'bilstm']:
             X_test_reshaped = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-        file = f'images/{name}_model.png'
-        plot_model(model, to_file=file, show_shapes=True)
+        elif name == 'cnnlstm':
+            X_test_reshaped = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+
         predicted = model.predict(X_test_reshaped)
         predicted = scaler.inverse_transform(predicted.reshape(-1, 1)).reshape(1, -1)[0]
         y_preds.append(predicted[:96])
         print(name)
         eva_regress(y_test, predicted)
 
-    plot_results(y_test[:96], y_preds, names)
+    plot_results(y_test[:96], y_preds, models)
     
-    plot_individual_results(y_test[:96], y_preds, names)
+    plot_individual_results(y_test[:96], y_preds, models)
 
 if __name__ == '__main__':
     main()
