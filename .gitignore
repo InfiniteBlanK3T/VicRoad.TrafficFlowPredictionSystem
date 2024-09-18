@@ -10,7 +10,6 @@ __pycache__/
 node_modules/
 dist
 
-
 # Distribution / packaging
 .Python
 build/
