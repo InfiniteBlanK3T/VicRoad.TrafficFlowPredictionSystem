@@ -13,7 +13,8 @@ COS30018-Intelligent Systems - Semester 2 2024
 
 ## Graphs
 ### v0.1 19th Sept
-![image](https://github.com/user-attachments/assets/41a640d8-2c70-4d5d-8ea8-fa8507af533f)
+![image](https://github.com/user-attachments/assets/07dc703b-ee41-48f0-b28b-8e47fb54bfd0)
+
 
 
 #### Installing `graphviz` - Modelling graph:
