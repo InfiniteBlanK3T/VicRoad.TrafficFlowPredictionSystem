@@ -37,7 +37,7 @@ class TFPSGUI:
 
     def create_widgets(self):
         # Prediction Frame
-        pred_frame = ttk.LabelFrame(self.master, text="Traffic Volume Prediction")
+        pred_frame = ttk.LabelFrame(self.master, text="Vicroad Dataset - Bundoora 3083 - Traffic Volume Prediction")
         pred_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
         ttk.Label(pred_frame, text="Select Model:").grid(row=0, column=0, padx=5, pady=5, sticky='w')
@@ -108,7 +108,7 @@ class TFPSGUI:
         
         ax.set_xlabel('Time of Day')
         ax.set_ylabel('Traffic Volume (vehicles per 15 min)')
-        ax.set_title('24-Hour Traffic Volume Prediction')
+        ax.set_title('24-Hour Traffic Volume Prediction - Bundoora 3083 - Vicroad Dataset')
         ax.legend()
         
         # Improve x-axis readability
