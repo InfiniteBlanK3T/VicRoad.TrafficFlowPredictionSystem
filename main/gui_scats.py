@@ -33,11 +33,11 @@ class TFPSGUI:
     def setup_data(self):
         file_path = os.path.join('data', 'Scats-Data-October-2006-Bundoora.csv')
         self.lag = 12
-        _, _, self.X_test, _, self.scaler = process_data(file_path, self.lag)
+        _, _, self.X_test, self.y_test, self.scaler = process_data(file_path, self.lag)
 
     def create_widgets(self):
         # Prediction Frame
-        pred_frame = ttk.LabelFrame(self.master, text="Vicroad Dataset - Bundoora 3083 - Traffic Volume Prediction")
+        pred_frame = ttk.LabelFrame(self.master, text="Traffic Volume Prediction")
         pred_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
         ttk.Label(pred_frame, text="Select Model:").grid(row=0, column=0, padx=5, pady=5, sticky='w')
@@ -54,17 +54,16 @@ class TFPSGUI:
         self.time_dropdown.set("08:00")
 
         ttk.Button(pred_frame, text="Predict", command=self.predict).grid(row=2, column=0, columnspan=2, pady=10)
-        
-        self.result_var = tk.StringVar()
-        ttk.Label(pred_frame, textvariable=self.result_var).grid(row=3, column=0, columnspan=2, pady=5)
-        
-        
+
+        self.result_text = tk.Text(pred_frame, height=5, width=40, wrap=tk.WORD, font=('Arial', 10))
+        self.result_text.grid(row=3, column=0, columnspan=2, pady=5, padx=5)
+        self.result_text.config(state=tk.DISABLED)
+
         # Info Frame
         info_frame = ttk.LabelFrame(self.master, text="Information")
         info_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+        ttk.Label(info_frame, text="Hit Thomas@BlanK3T up for bugs! :)").grid(row=4, column=0, columnspan=2, pady=5)
         ttk.Label(info_frame, text="Traffic volume represents the number of vehicles\npassing through the SCATS site in a 15-minute interval.\nData shown is for a typical weekday.").grid(padx=5, pady=5)
-        
-        ttk.Label(info_frame, text="--Hit Thomas@BlanK3T up for bugs!-- :)").grid(row=4, column=0, columnspan=2, pady=5)
 
         # Graph Frame
         self.graph_frame = ttk.LabelFrame(self.master, text="Traffic Volume Graph")
@@ -89,26 +88,40 @@ class TFPSGUI:
 
             prediction = model.predict(input_data)
             prediction = self.scaler.inverse_transform(prediction)[0][0]
-
-            self.result_var.set(f"Predicted traffic volume at {time_str}: {prediction:.2f} vehicles")
-            self.plot_prediction(time_step, prediction)
+            
+            actual_traffic = self.scaler.inverse_transform(self.y_test[time_step].reshape(-1, 1))[0][0]
+            
+            result_text = (
+                f"Time: {time_str}\n"
+                f"{'Predicted:':>10} {prediction:.2f} vehicles\n"
+                f"{'Actual:':>10} {actual_traffic:.2f} vehicles\n"
+                f"{'Difference:':>10} {abs(prediction - actual_traffic):.2f} vehicles"
+            )
+            
+            self.result_text.config(state=tk.NORMAL)
+            self.result_text.delete('1.0', tk.END)
+            self.result_text.insert(tk.END, result_text)
+            self.result_text.config(state=tk.DISABLED)
+            
+            self.plot_prediction(time_step, prediction, actual_traffic)
         except Exception as e:
             messagebox.showerror("Prediction Error", f"An error occurred: {str(e)}")
 
-    def plot_prediction(self, time_step, prediction):
+    def plot_prediction(self, time_step, prediction, actual_traffic):
         for widget in self.graph_frame.winfo_children():
             widget.destroy()
 
         fig, ax = plt.subplots(figsize=(8, 6))
         times = [f"{i//4:02d}:{(i%4)*15:02d}" for i in range(96)]
-        actual_data = self.scaler.inverse_transform(self.X_test[:96, -1].reshape(-1, 1)).flatten()
+        actual_data = self.scaler.inverse_transform(self.y_test[:96].reshape(-1, 1)).flatten()
         
         ax.plot(times, actual_data, label='Actual', color='blue', alpha=0.7)
         ax.scatter(times[time_step], prediction, color='red', s=100, zorder=5, label='Prediction')
+        ax.scatter(times[time_step], actual_traffic, color='green', s=100, zorder=5, label='Actual (selected)')
         
         ax.set_xlabel('Time of Day')
         ax.set_ylabel('Traffic Volume (vehicles per 15 min)')
-        ax.set_title('24-Hour Traffic Volume Prediction - Bundoora 3083 - Vicroad Dataset')
+        ax.set_title('24-Hour Traffic Volume Prediction')
         ax.legend()
         
         # Improve x-axis readability
