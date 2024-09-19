@@ -11,6 +11,11 @@ COS30018-Intelligent Systems - Semester 2 2024
 - For Linux:
 `sudo apt install pyenv`
 
+## Graphs
+### v0.1 19th Sept
+![image](https://github.com/user-attachments/assets/46cfb2fe-1b97-41dd-9d51-74a24e060f52)
+
+
 #### Installing `graphviz` - Modelling graph:
 - For Mac:
 `brew install graphviz`
