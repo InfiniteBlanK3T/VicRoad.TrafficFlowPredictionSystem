@@ -6,3 +6,5 @@ keras==2.15.0
 matplotlib==3.9.2
 pydot==3.0.1
 seaborn
+folium 
+tkinterweb
