@@ -10,23 +10,23 @@ import networkx as nx
 from shapely.geometry import LineString, Point
 from geopandas import GeoDataFrame
 import os
+import yaml
+
+# Load configuration
+with open('config.yml', 'r') as config_file:
+    config = yaml.safe_load(config_file)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def process_data(file_path):
+def process_data(file_path, lag=12, n_scats=None):
     try:
-        # Use os.path.join for cross-platform compatibility
         full_path = os.path.join(os.path.dirname(__file__), file_path)
         df = pd.read_csv(full_path, encoding='utf-8', header=0, skiprows=[0])
         
-        logger.info("Data read from csv file:")
-        logger.info(df.head(10))
-        
         df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y')
         
-        # Melt the dataframe to long format
         id_vars = ['SCATS Number', 'Location', 'Date', 'NB_LATITUDE', 'NB_LONGITUDE']
         value_vars = [f'V{str(i).zfill(2)}' for i in range(96)]
         df_melted = df.melt(id_vars=id_vars, value_vars=value_vars, var_name='TimeSlot', value_name='TrafficVolume')
@@ -38,9 +38,16 @@ def process_data(file_path):
         scaler = MinMaxScaler(feature_range=(0, 1))
         df_melted['NormalizedVolume'] = scaler.fit_transform(df_melted['TrafficVolume'].values.reshape(-1, 1))
         
-        # Extract street names and create street segments
         df_melted['Street'] = df_melted['Location'].apply(lambda x: x.split('_')[0])
         street_segments = create_street_segments(df_melted)
+        
+        if n_scats is not None:
+            if n_scats == 'all':
+                n_scats = None
+            else:
+                n_scats = int(n_scats)
+                unique_scats = df_melted['SCATS Number'].unique()[:n_scats]
+                df_melted = df_melted[df_melted['SCATS Number'].isin(unique_scats)]
         
         return df_melted, scaler, street_segments
 
@@ -134,8 +141,7 @@ def get_color(normalized_value):
         return 'orange'
     else:
         return 'red'
-    
-## These 2 are very good and working so far dont change them unless you know what you are doing!!
+
 def create_sequences(df, scats_number, sequence_length):
     """
     Create sequences for a specific SCATS number.
