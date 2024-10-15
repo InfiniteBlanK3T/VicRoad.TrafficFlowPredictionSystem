@@ -16,10 +16,13 @@ from matplotlib.figure import Figure
 from matplotlib import dates as mdates
 from datetime import datetime
 import webbrowser
+import tempfile
 import logging
 from PIL import Image, ImageTk
 import io
 import yaml
+import folium
+from folium.plugins import MarkerCluster
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -41,6 +44,8 @@ class TFPSGUI:
         self.scaler = None
         self.street_segments = None
         self.model_data = None
+        self.map = None
+        self.map_file = None
 
         self.create_widgets()
         self.setup_data()
@@ -138,8 +143,7 @@ class TFPSGUI:
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
         self.create_prediction_tab()
-        self.create_route_guidance_tab()
-        self.create_map_tab()
+        self.create_route_guidance_map_tab()
 
     def create_prediction_tab(self):
         pred_frame = ttk.Frame(self.notebook)
@@ -191,52 +195,42 @@ class TFPSGUI:
         self.graph_frame = ttk.Frame(result_frame)
         self.graph_frame.pack(pady=5, padx=5, fill=tk.BOTH, expand=True)
 
-    def create_route_guidance_tab(self):
-        route_frame = ttk.Frame(self.notebook)
-        self.notebook.add(route_frame, text="Route Guidance")
+    def create_route_guidance_map_tab(self):
+        combined_frame = ttk.Frame(self.notebook)
+        self.notebook.add(combined_frame, text="Map & Route Guidance")
 
-        input_frame = ttk.LabelFrame(route_frame, text="Route Inputs")
-        input_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        # Left panel for inputs and results
+        left_panel = ttk.Frame(combined_frame)
+        left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
 
-        ttk.Label(input_frame, text="Origin SCATS:").grid(
-            row=0, column=0, padx=5, pady=5, sticky="w"
-        )
+        # Route guidance inputs
+        input_frame = ttk.LabelFrame(left_panel, text="Route Inputs")
+        input_frame.pack(fill=tk.X, pady=10)
+
+        ttk.Label(input_frame, text="Origin SCATS:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
         self.origin_var = tk.StringVar()
-        self.origin_dropdown = ttk.Combobox(
-            input_frame, textvariable=self.origin_var, state="readonly"
-        )
+        self.origin_dropdown = ttk.Combobox(input_frame, textvariable=self.origin_var, state="readonly")
         self.origin_dropdown.grid(row=0, column=1, padx=5, pady=5)
 
-        ttk.Label(input_frame, text="Destination SCATS:").grid(
-            row=1, column=0, padx=5, pady=5, sticky="w"
-        )
+        ttk.Label(input_frame, text="Destination SCATS:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         self.destination_var = tk.StringVar()
-        self.destination_dropdown = ttk.Combobox(
-            input_frame, textvariable=self.destination_var, state="readonly"
-        )
+        self.destination_dropdown = ttk.Combobox(input_frame, textvariable=self.destination_var, state="readonly")
         self.destination_dropdown.grid(row=1, column=1, padx=5, pady=5)
 
-        ttk.Button(input_frame, text="Find Routes", command=self.find_routes).grid(
-            row=2, column=0, columnspan=2, pady=10
-        )
+        ttk.Button(input_frame, text="Find Routes", command=self.find_and_display_routes).grid(row=2, column=0, columnspan=2, pady=10)
 
-        result_frame = ttk.LabelFrame(route_frame, text="Route Results")
-        result_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+        # Route results
+        result_frame = ttk.LabelFrame(left_panel, text="Route Results")
+        result_frame.pack(fill=tk.BOTH, expand=True, pady=10)
 
-        self.route_text = tk.Text(
-            result_frame, height=20, width=60, wrap=tk.WORD, font=("Arial", 10)
-        )
+        self.route_text = tk.Text(result_frame, height=20, width=40, wrap=tk.WORD, font=("Arial", 10))
         self.route_text.pack(pady=5, padx=5, fill=tk.BOTH, expand=True)
 
-    def create_map_tab(self):
-        map_frame = ttk.Frame(self.notebook)
-        self.notebook.add(map_frame, text="Traffic Map")
+        # Right panel for map
+        self.map_frame = ttk.Frame(combined_frame)
+        self.map_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        ttk.Button(map_frame, text="Show Traffic Map", command=self.show_map).pack(
-            pady=10
-        )
-        self.map_frame = ttk.Frame(map_frame)
-        self.map_frame.pack(fill=tk.BOTH, expand=True)
+        self.show_map()
 
     def predict(self):
         try:
@@ -447,43 +441,60 @@ class TFPSGUI:
 
     def show_map(self):
         try:
-            progress_window = tk.Toplevel(self.master)
-            progress_window.title("Creating Map")
-            progress_label = ttk.Label(
-                progress_window, text="Generating traffic map..."
-            )
-            progress_label.pack(pady=10)
-            progress_bar = ttk.Progressbar(
-                progress_window, length=300, mode="indeterminate"
-            )
-            progress_bar.pack(pady=10)
-            progress_bar.start()
+            if self.map is None:
+                self.map = create_traffic_map(self.df, self.street_segments)
 
-            m = create_traffic_map(self.df, self.street_segments)
+            if self.map_file:
+                os.unlink(self.map_file)
 
-            data = io.BytesIO()
-            m.save(data, close_file=False)
-            img = Image.open(data)
-            photo = ImageTk.PhotoImage(img)
-
-            for widget in self.map_frame.winfo_children():
-                widget.destroy()
-
-            label = ttk.Label(self.map_frame, image=photo)
-            label.image = photo
-            label.pack(fill=tk.BOTH, expand=True)
-
-            progress_window.destroy()
+            _, self.map_file = tempfile.mkstemp(suffix='.html')
+            self.map.save(self.map_file)
+            webbrowser.open('file://' + self.map_file)
 
         except Exception as e:
             logger.exception(f"Error creating map: {str(e)}")
-            messagebox.showerror(
-                "Map Creation Error",
-                f"An error occurred while creating the map: {str(e)}",
-            )
-        finally:
-            if "progress_window" in locals():
-                progress_window.destroy()
+            messagebox.showerror("Map Creation Error", f"An error occurred while creating the map: {str(e)}")
+
+    def find_and_display_routes(self):
+        try:
+            origin = self.origin_var.get()
+            destination = self.destination_var.get()
+
+            if not origin or not destination:
+                messagebox.showerror("Input Error", "Please select both origin and destination SCATS numbers.")
+                return
+
+            routes = route_guidance(self.df, self.street_segments, origin, destination)
+
+            self.route_text.config(state=tk.NORMAL)
+            self.route_text.delete("1.0", tk.END)
+            self.route_text.insert(tk.END, format_route_result(routes))
+            self.route_text.config(state=tk.DISABLED)
+
+            self.update_map_with_route(routes[0]['path'])  # Display the first (best) route on the map
+
+        except ValueError as e:
+            logger.exception(f"Route finding error: {str(e)}")
+            messagebox.showerror("Route Finding Error", str(e))
+        except Exception as e:
+            logger.exception(f"Unexpected error in route finding: {str(e)}")
+            messagebox.showerror("Unexpected Error", f"An unexpected error occurred: {str(e)}")
+
+    def update_map_with_route(self, route):
+        if self.map is None:
+            self.show_map()
+
+        # Add route to the map
+        route_coords = [self.df[self.df['SCATS Number'] == int(scats)][['NB_LATITUDE', 'NB_LONGITUDE']].iloc[0].tolist() for scats in route]
+        folium.PolyLine(locations=route_coords, color="blue", weight=4, opacity=0.8).add_to(self.map)
+
+        # Save and display the updated map
+        if self.map_file:
+            os.unlink(self.map_file)
+
+        _, self.map_file = tempfile.mkstemp(suffix='.html')
+        self.map.save(self.map_file)
+        webbrowser.open('file://' + self.map_file)
 
     def show_error_message(self, message):
         error_frame = ttk.Frame(self.master)
@@ -509,3 +520,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+def __del__(self):
+        if self.map_file and os.path.exists(self.map_file):
+            os.unlink(self.map_file)
