@@ -46,6 +46,7 @@ class TFPSGUI:
         self.model_data = None
         self.map = None
         self.map_file = None
+        self.data_loaded = False
 
         self.create_widgets()
         self.setup_data()
@@ -66,6 +67,7 @@ class TFPSGUI:
                 self.model_data = prepare_model_data(self.df)
                 self.setup_models()
                 self.update_dropdowns()
+                self.data_loaded = True
             else:
                 raise ValueError(f"Unexpected result from process_data: {result}")
 
@@ -440,8 +442,16 @@ class TFPSGUI:
             )
 
     def show_map(self):
+        if not self.data_loaded:
+            messagebox.showerror(
+                "Data Not Loaded",
+                "Data has not been loaded. Please check the console for errors.",
+            )
+            return 
         try:
             if self.map is None:
+                if self.df is None or self.street_segments is None:
+                    raise ValueError("Data not loaded. Please check the console for errors.")
                 self.map = create_traffic_map(self.df, self.street_segments)
 
             if self.map_file:
@@ -456,6 +466,9 @@ class TFPSGUI:
             messagebox.showerror("Map Creation Error", f"An error occurred while creating the map: {str(e)}")
 
     def find_and_display_routes(self):
+        if not self.data_loaded:
+            messagebox.showerror("Data Not Loaded", "Data has not been loaded. Please check the console for errors.")
+            return
         try:
             origin = self.origin_var.get()
             destination = self.destination_var.get()
