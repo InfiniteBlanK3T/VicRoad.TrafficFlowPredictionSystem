@@ -7,13 +7,13 @@ from data.dataSCATSMap import process_data, prepare_model_data, create_traffic_m
 from src.route_guidance import route_guidance
 from src.utils import (
     format_prediction_result,
-    plot_prediction,
-    highlight_time_range,
     format_route_result,
 )
 import os
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.figure import Figure
+from matplotlib import dates as mdates
 from datetime import datetime
 import webbrowser
 import logging
@@ -99,15 +99,6 @@ class TFPSGUI:
             if dates:
                 self.date_var.set(dates[0])
 
-            times = [
-                f"{hour:02d}:{minute:02d}"
-                for hour in range(24)
-                for minute in range(0, 60, 15)
-            ]
-            self.time_dropdown["values"] = times
-            if times:
-                self.time_var.set(times[0])
-
     def update_model_dropdown(self):
         available_models = [name for name in self.models if self.models[name]]
         self.model_dropdown["values"] = available_models
@@ -185,17 +176,8 @@ class TFPSGUI:
         )
         self.date_dropdown.grid(row=2, column=1, padx=5, pady=5)
 
-        ttk.Label(input_frame, text="Select Time:").grid(
-            row=3, column=0, padx=5, pady=5, sticky="w"
-        )
-        self.time_var = tk.StringVar()
-        self.time_dropdown = ttk.Combobox(
-            input_frame, textvariable=self.time_var, state="readonly"
-        )
-        self.time_dropdown.grid(row=3, column=1, padx=5, pady=5)
-
         ttk.Button(input_frame, text="Predict", command=self.predict).grid(
-            row=5, column=0, columnspan=2, pady=10
+            row=3, column=0, columnspan=2, pady=10
         )
 
         result_frame = ttk.LabelFrame(pred_frame, text="Prediction Results")
@@ -261,7 +243,6 @@ class TFPSGUI:
             model_name = self.model_var.get().lower()
             street = self.street_var.get()
             date = self.date_var.get()
-            time = self.time_var.get()
 
             if not model_name:
                 raise ValueError("Please select a model")
@@ -279,68 +260,163 @@ class TFPSGUI:
             scats_number = available_scats["SCATS Number"].iloc[0]
             model = self.models[model_name][scats_number]
 
-            X_test = self.model_data[scats_number]["X_test"]
-            y_test = self.model_data[scats_number]["y_test"]
+            selected_date = pd.to_datetime(date).date()
+            day_data = available_scats[available_scats["Date"].dt.date == selected_date]
 
-            selected_datetime = pd.to_datetime(f"{date} {time}")
-            matching_data = available_scats[
-                available_scats["DateTime"] == selected_datetime
-            ]
+            if day_data.empty:
+                raise ValueError("No data available for the selected date")
 
-            if matching_data.empty:
-                raise ValueError("No data available for the selected date and time")
+            # Ensure we have 96 time points for the full day
+            full_day_times = pd.date_range(start=f"{date} 00:00", end=f"{date} 23:45", freq="15min")
+            predictions = []
+            actuals = day_data["TrafficVolume"].tolist()
 
-            time_index = matching_data.index[0] - available_scats.index[0]
+            # Pad actuals with NaN if less than 96 points
+            actuals += [np.nan] * (96 - len(actuals))
 
-            if time_index < 0 or time_index >= len(X_test):
-                raise ValueError("Selected time is out of range for the available data")
+            for time in full_day_times:
+                matching_data = day_data[day_data["DateTime"] == time]
+                
+                if matching_data.empty:
+                    # If no data for this time, use the last available data point
+                    last_known_data = day_data[day_data["DateTime"] < time].iloc[-1] if not day_data[day_data["DateTime"] < time].empty else None
+                    
+                    if last_known_data is not None:
+                        input_data = self.prepare_input_data(model_name, last_known_data, available_scats)
+                    else:
+                        # If no previous data, use a default input (e.g., zeros)
+                        input_shape = model.input_shape[1:]
+                        input_data = np.zeros((1,) + input_shape)
+                else:
+                    input_data = self.prepare_input_data(model_name, matching_data.iloc[0], available_scats)
 
-            if model_name in ["lstm", "gru", "bilstm", "cnnlstm"]:
-                input_data = np.reshape(X_test[time_index], (1, X_test.shape[1], 1))
-            else:  # SAES
-                input_data = np.reshape(X_test[time_index], (1, X_test.shape[1]))
+                prediction = model.predict(input_data)
+                prediction = self.scaler.inverse_transform(prediction.reshape(-1, 1))[0][0]
+                predictions.append(prediction)
 
-            prediction = model.predict(input_data)
-            prediction = self.scaler.inverse_transform(prediction.reshape(-1, 1))[0][0]
-
-            actual_traffic = self.scaler.inverse_transform(
-                y_test[time_index].reshape(-1, 1)
-            )[0][0]
-
-            result_text = format_prediction_result(
-                street, date, time, prediction, actual_traffic
-            )
-
-            self.result_text.config(state=tk.NORMAL)
-            self.result_text.delete("1.0", tk.END)
-            self.result_text.insert(tk.END, result_text)
-            self.result_text.config(state=tk.DISABLED)
-
-            self.plot_prediction(street, date, time, prediction, actual_traffic)
+            self.plot_prediction(street, date, day_data, predictions, actuals)
 
         except Exception as e:
             logger.exception(f"Prediction error: {str(e)}")
             messagebox.showerror("Prediction Error", str(e))
 
-    def plot_prediction(self, street, date, time, prediction, actual_traffic):
+    def prepare_input_data(self, model_name, data_point, available_scats):
+        scats_number = data_point["SCATS Number"]
+        X_test = self.model_data[scats_number]["X_test"]
+        
+        sequence_length = X_test.shape[1]
+        
+        time_index = available_scats.index.get_loc(data_point.name)
+        
+        input_sequence = available_scats.iloc[max(0, time_index - sequence_length + 1):time_index + 1]['NormalizedVolume'].values
+        
+        if len(input_sequence) < sequence_length:
+            input_sequence = np.pad(input_sequence, (sequence_length - len(input_sequence), 0), 'constant')
+        
+        if model_name in ["lstm", "gru", "bilstm", "cnnlstm"]:
+            return np.reshape(input_sequence, (1, sequence_length, 1))
+        else:  # SAES
+            return np.reshape(input_sequence, (1, sequence_length))
+            
+    def plot_prediction(self, street, date, day_data, predictions, actuals):
         for widget in self.graph_frame.winfo_children():
             widget.destroy()
 
-        fig, ax = plt.subplots(figsize=(10, 6))
-        street_data = self.df[
-            (self.df["Street"] == street)
-            & (self.df["Date"].dt.date == pd.to_datetime(date).date())
-        ]
+        fig = Figure(figsize=(10, 5), dpi=100)
+        ax = fig.add_subplot(111)
+        
+        # Create a single time range for both predictions and actuals
+        times = pd.date_range(start=f"{date} 00:00", end=f"{date} 23:45", freq="15min")
+        
+        # Ensure predictions and actuals have the same length as times
+        predictions = predictions[:len(times)]
+        actuals = actuals[:len(times)]
 
-        plot_prediction(ax, street_data, prediction, actual_traffic, time)
-        highlight_time_range(ax, "07:00", "10:00", "Morning Rush")
-        highlight_time_range(ax, "16:00", "19:00", "Evening Rush")
+        # Remove NaN values from actuals and corresponding times and predictions
+        valid_indices = ~np.isnan(actuals)
+        plot_times = times[valid_indices]
+        plot_actuals = np.array(actuals)[valid_indices]
+        plot_predictions = np.array(predictions)[valid_indices]
 
-        plt.tight_layout()
+        actual_line, = ax.plot(plot_times, plot_actuals, label="Actual", color="blue", alpha=0.7)
+        predicted_line, = ax.plot(plot_times, plot_predictions, label="Predicted", color="red", alpha=0.7)
+
+        ax.set_xlabel("Time of Day")
+        ax.set_ylabel("Traffic Volume (vehicles per 15 min)")
+        ax.set_title(f'24-Hour Traffic Volume Prediction - {street} ({date})')
+        ax.legend()
+
+        # Format x-axis to show hours
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        ax.xaxis.set_major_locator(mdates.HourLocator(interval=3))
+        ax.xaxis.set_minor_locator(mdates.HourLocator(interval=1))
+        fig.autofmt_xdate()  # Rotate and align the tick labels
+
+        # Set x-axis limits to ensure full day is shown
+        ax.set_xlim(times[0], times[-1])
+
+        # Set y-axis limits with some padding
+        y_min = min(min(plot_actuals), min(plot_predictions))
+        y_max = max(max(plot_actuals), max(plot_predictions))
+        y_range = y_max - y_min
+        ax.set_ylim(y_min - 0.1 * y_range, y_max + 0.1 * y_range)
+
+        # Highlight rush hours
+        self.highlight_time_range(ax, "07:00", "10:00", "Morning Rush")
+        self.highlight_time_range(ax, "16:00", "19:00", "Evening Rush")
+
         canvas = FigureCanvasTkAgg(fig, master=self.graph_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
+        # Add navigation toolbar
+        toolbar = NavigationToolbar2Tk(canvas, self.graph_frame)
+        toolbar.update()
+        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        self.add_tooltip(fig, ax, actual_line, predicted_line)
+
+    def add_tooltip(self, fig, ax, actual_line, predicted_line):
+        tooltip = ax.annotate("", xy=(0,0), xytext=(20,20), textcoords="offset points",
+                            bbox=dict(boxstyle="round", fc="w"),
+                            arrowprops=dict(arrowstyle="->"))
+        tooltip.set_visible(False)
+
+        def update_tooltip(event):
+            if event.inaxes == ax:
+                cont_a, ind_a = actual_line.contains(event)
+                cont_p, ind_p = predicted_line.contains(event)
+                if cont_a:
+                    pos = actual_line.get_xydata()[ind_a["ind"][0]]
+                    tooltip.xy = pos
+                    tooltip.set_text(f"Time: {mdates.num2date(pos[0]).strftime('%H:%M')}\nActual: {pos[1]:.2f}")
+                    tooltip.set_visible(True)
+                elif cont_p:
+                    pos = predicted_line.get_xydata()[ind_p["ind"][0]]
+                    tooltip.xy = pos
+                    tooltip.set_text(f"Time: {mdates.num2date(pos[0]).strftime('%H:%M')}\nPredicted: {pos[1]:.2f}")
+                    tooltip.set_visible(True)
+                else:
+                    tooltip.set_visible(False)
+                fig.canvas.draw_idle()
+
+        fig.canvas.mpl_connect("motion_notify_event", update_tooltip)
+        
+    def highlight_time_range(self, ax, start, end, label):
+        date = mdates.num2date(ax.get_xlim()[0]).date()
+        start_time = pd.to_datetime(f"{date} {start}")
+        end_time = pd.to_datetime(f"{date} {end}")
+        
+        ax.axvspan(start_time, end_time, alpha=0.2, color="yellow")
+        ax.text(
+            start_time,
+            ax.get_ylim()[1],
+            label,
+            ha="left",
+            va="top",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.7),
+        )
+        
     def find_routes(self):
         try:
             origin = self.origin_var.get()
