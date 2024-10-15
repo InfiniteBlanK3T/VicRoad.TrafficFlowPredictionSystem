@@ -6,7 +6,7 @@ data:
 
 model:
   batch_size: 256
-  epochs: 3
+  epochs: 50
   validation_split: 0.05
 
 training:
