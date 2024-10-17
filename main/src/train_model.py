@@ -26,8 +26,9 @@ def train_model(model, X_train, y_train, name, scats, config):
         epochs=config['model']['epochs'],
         validation_split=config['model']['validation_split'])
 
-    model.save(f'model/trained/{name}_{scats}.h5')
-    pd.DataFrame.from_dict(hist.history).to_csv(f'model/trained/{name}_{scats}_loss.csv', encoding='utf-8', index=False)
+    model_save_path = f"{config['training']['model_save_path']}/{name}_{scats}.h5"
+    model.save(model_save_path)
+    pd.DataFrame.from_dict(hist.history).to_csv(f"{config['training']['model_save_path']}/{name}_{scats}_loss.csv", encoding='utf-8', index=False)
 
 def train_seas(models, X_train, y_train, name, scats, config):
     """Train the SAEs model."""
@@ -54,6 +55,7 @@ def train_seas(models, X_train, y_train, name, scats, config):
     train_model(saes, X_train, y_train, name, scats, config)
 
 def main():
+    os.makedirs(config['training']['model_save_path'], exist_ok=True)
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="lstm", help="Model to train: lstm, gru, bilstm, cnnlstm, saes")
     parser.add_argument("--n_scats", type=int, default=None, help="Number of SCATS to train (5, 10, or None for all)")

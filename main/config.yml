@@ -11,6 +11,10 @@ model:
 
 training:
   models: ['lstm', 'gru', 'bilstm', 'cnnlstm', 'saes']
+  model_save_path: 'model/trained'
+
+evaluation:
+  image_save_path: 'model/evaluation'  
 
 gui:
   window_size: '1400x800'

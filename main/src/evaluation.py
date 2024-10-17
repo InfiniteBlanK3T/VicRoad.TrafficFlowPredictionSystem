@@ -1,3 +1,4 @@
+import os
 import warnings
 import numpy as np
 import pandas as pd
@@ -7,14 +8,19 @@ import matplotlib.dates as mdates
 import seaborn as sns
 from sklearn.metrics import explained_variance_score, mean_absolute_error, mean_squared_error, r2_score
 from keras.models import load_model
-from data.dataSCATSMap import process_data
+from data.dataSCATSMap import process_data, prepare_model_data
 import yaml
+import json
 
 warnings.filterwarnings("ignore")
 
 # Load configuration
-with open('config.yml', 'r') as config_file:
+with open("config.yml", "r") as config_file:
     config = yaml.safe_load(config_file)
+
+# Create necessary directories
+os.makedirs(config['training']['model_save_path'], exist_ok=True)
+os.makedirs(config['evaluation']['image_save_path'], exist_ok=True)
 
 def MAPE(y_true, y_pred):
     """Mean Absolute Percentage Error"""
@@ -31,28 +37,16 @@ def evaluate_regression(y_true, y_pred):
     rmse = np.sqrt(mse)
     r2 = r2_score(y_true, y_pred)
     
-    print(f'Explained variance score: {evs:.6f}')
-    print(f'MAPE: {mape:.6f}%')
-    print(f'MAE: {mae:.6f}')
-    print(f'MSE: {mse:.6f}')
-    print(f'RMSE: {rmse:.6f}')
-    print(f'R2: {r2:.6f}')
-    """Evaluate regression metrics"""
-    mape = MAPE(y_true, y_pred)
-    evs = explained_variance_score(y_true, y_pred)
-    mae = mean_absolute_error(y_true, y_pred)
-    mse = mean_squared_error(y_true, y_pred)
-    rmse = np.sqrt(mse)
-    r2 = r2_score(y_true, y_pred)
-    
-    print(f'Explained variance score: {evs:.6f}')
-    print(f'MAPE: {mape:.6f}%')
-    print(f'MAE: {mae:.6f}')
-    print(f'MSE: {mse:.6f}')
-    print(f'RMSE: {rmse:.6f}')
-    print(f'R2: {r2:.6f}')
+    return {
+        'MAPE': mape,
+        'EVS': evs,
+        'MAE': mae,
+        'MSE': mse,
+        'RMSE': rmse,
+        'R2': r2
+    }
 
-def plot_results(y_true, y_preds, names):
+def plot_results(y_true, y_preds, names, scats_number):
     """Plot a summary of all model predictions"""
     sns.set_style("whitegrid")
     plt.figure(figsize=(16, 10))
@@ -67,7 +61,7 @@ def plot_results(y_true, y_preds, names):
         plt.plot(x, y_pred, label=name, color=color, linewidth=2, alpha=0.7)
 
     plt.legend(loc='upper left', fontsize=12)
-    plt.title('Traffic Flow Prediction - All Models', fontsize=20)
+    plt.title(f'Traffic Flow Prediction - All Models (SCATS {scats_number})', fontsize=20)
     plt.xlabel('Time of Day', fontsize=14)
     plt.ylabel('Traffic Flow', fontsize=14)
 
@@ -79,10 +73,10 @@ def plot_results(y_true, y_preds, names):
     plt.tight_layout()
     
     current_time = datetime.now().strftime("%Y%m%d-%H%M")
-    plt.savefig(f"images/ScatsData-Bundoora/{current_time}-ScatsData_all_predictions.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"{config['evaluation']['image_save_path']}/{current_time}-ScatsData_all_predictions_{scats_number}.png", dpi=300, bbox_inches='tight')
     plt.close()
 
-def plot_individual_results(y_true, y_preds, names):
+def plot_individual_results(y_true, y_preds, names, scats_number):
     """Plot individual results for each model"""
     sns.set_style("whitegrid")
     fig, axs = plt.subplots(len(names), 1, figsize=(16, 6*len(names)), sharex=True)
@@ -95,7 +89,7 @@ def plot_individual_results(y_true, y_preds, names):
     for i, (name, y_pred, color) in enumerate(zip(names, y_preds, colors)):
         axs[i].plot(x, y_true, label='True Data', color='black', linewidth=2, alpha=0.7)
         axs[i].plot(x, y_pred, label=name, color=color, linewidth=2)
-        axs[i].set_title(f'{name} Prediction vs True Data', fontsize=16)
+        axs[i].set_title(f'{name} Prediction vs True Data (SCATS {scats_number})', fontsize=16)
         axs[i].set_ylabel('Traffic Flow', fontsize=12)
         axs[i].legend(loc='upper left', fontsize=10)
         axs[i].grid(True, linestyle='--', alpha=0.7)
@@ -112,29 +106,36 @@ def plot_individual_results(y_true, y_preds, names):
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         ax.xaxis.set_major_locator(mdates.HourLocator(interval=3))
 
-    plt.tight_layout()
     current_time = datetime.now().strftime("%Y%m%d-%H%M")
-    plt.savefig(f"images/ScatsData-Bundoora/{current_time}-ScatsData_individual_predictions.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"{config['evaluation']['image_save_path']}/{current_time}-ScatsData_individual_predictions_{scats_number}.png", dpi=300, bbox_inches='tight')
     plt.close()
 
 def evaluate_models(file_path, lag=12, n_scats=None):
     models = config['training']['models']
-    loaded_models = []
-    for m in models:
-        try:
-            loaded_models.append(load_model(f'model/trained/{m}.h5'))
-        except Exception as e:
-            print(f"Could not load model {m}: {e}")
-
+    loaded_models = {model_name: {} for model_name in models}
+    
     df_melted, scaler, _ = process_data(file_path, lag, n_scats=n_scats)
     model_data = prepare_model_data(df_melted, sequence_length=lag)
+
+    results = {}
 
     for scats_number, data in model_data.items():
         X_test, y_test = data['X_test'], data['y_test']
         y_test = scaler.inverse_transform(y_test.reshape(-1, 1)).reshape(1, -1)[0]
 
         y_preds = []
-        for name, model in zip(models, loaded_models):
+        results[scats_number] = {}
+
+        for name in models:
+            try:
+                model_path = f"{config['training']['model_save_path']}/{name}_{scats_number}.h5"
+                if scats_number not in loaded_models[name]:
+                    loaded_models[name][scats_number] = load_model(model_path)
+                model = loaded_models[name][scats_number]
+            except Exception as e:
+                print(f"Could not load model {name} for SCATS {scats_number}: {e}")
+                continue
+
             if name == 'saes':
                 X_test_reshaped = X_test
             elif name in ['lstm', 'gru', 'bilstm', 'cnnlstm']:
@@ -146,15 +147,21 @@ def evaluate_models(file_path, lag=12, n_scats=None):
             predicted = model.predict(X_test_reshaped)
             predicted = scaler.inverse_transform(predicted.reshape(-1, 1)).reshape(1, -1)[0]
             y_preds.append(predicted[:96])
-            print(f"{name.upper()} - SCATS Number: {scats_number}")
-            evaluate_regression(y_test, predicted)
-            print()
+            
+            metrics = evaluate_regression(y_test, predicted)
+            results[scats_number][name] = metrics
 
-        plot_results(y_test[:96], y_preds, models)
-        plot_individual_results(y_test[:96], y_preds, models)
+        plot_results(y_test[:96], y_preds, models, scats_number)
+        plot_individual_results(y_test[:96], y_preds, models, scats_number)
+
+    return results
 
 if __name__ == '__main__':
     file_path = config['data']['file_path']
     lag = config['data']['lag']
     n_scats = config['data']['n_scats_options'][0]  # Use the first option as default
-    evaluate_models(file_path, lag, n_scats)
+    results = evaluate_models(file_path, lag, n_scats)
+    
+    # Save results to a JSON file
+    with open('evaluation_results.json', 'w') as f:
+        json.dump(results, f, indent=4)
