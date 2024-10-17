@@ -12,6 +12,9 @@ COS30018-Intelligent Systems - Semester 2 2024
 `sudo apt install pyenv`
 
 ## Graphs
+### v0.2 12th Oct
+![Screenshot 2024-10-17 at 14 39 55](https://github.com/user-attachments/assets/1eae5d94-8633-4079-aa73-705b5f64a7ab)
+
 ### v0.1 19th Sept
 ![image](https://github.com/user-attachments/assets/07dc703b-ee41-48f0-b28b-8e47fb54bfd0)
 
@@ -32,15 +35,16 @@ COS30018-Intelligent Systems - Semester 2 2024
 - `mkdir .venv`
 
 
-Then installing python into it:
-Set the version you want to install
+4. Then installing python dependencies into it:
+4.1. Set the version you want to install
 - `pyenv local 3.10.12`
-Installing python onto that Virtual Env
+4.2. Installing python onto that Virtual Env
 - `pyenv exec python -m venv .venv`
-4. Installing all the dependencies -(requirements.txt) 
-`pip install -r requirements.txt`
-5. Activate virtual environment
+4.3. Activate virtual environment
 `source .venv/bin/activate`
+4.4. Installing all the dependencies -(requirements.txt) 
+`pip install -r requirements.txt`
+
 
 
 ## Project Structure
@@ -49,7 +53,6 @@ Installing python onto that Virtual Env
 - `models/`: Stores trained models
 - `src/`: Source code for the TFPS
 - `tests/`: Unit tests
-- `notebooks/`: Jupyter notebooks for experimentation
 - `docs/`: Project documentation
 
 ## Usage
