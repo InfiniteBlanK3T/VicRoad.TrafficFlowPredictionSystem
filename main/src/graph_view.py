@@ -3,26 +3,25 @@ from tkinter import ttk, messagebox
 import numpy as np
 import pandas as pd
 from keras.models import load_model
-from data.dataSCATSMap import process_data, prepare_model_data, create_traffic_map
-from src.route_guidance import route_guidance
-from src.utils import (
-    format_prediction_result,
-    format_route_result,
-)
 import os
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from matplotlib.figure import Figure
-from matplotlib import dates as mdates
+import time
 from datetime import datetime
 import webbrowser
 import tempfile
 import logging
-from PIL import Image, ImageTk
-import io
+import threading
 import yaml
 import folium
 from folium.plugins import MarkerCluster
+
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.figure import Figure
+from matplotlib import dates as mdates
+
+from data.dataSCATSMap import process_data, prepare_model_data, create_traffic_map
+from src.route_guidance import route_guidance
+from src.utils import ( format_route_result)
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -49,33 +48,7 @@ class TFPSGUI:
         self.data_loaded = False
 
         self.create_widgets()
-        self.setup_data()
-
-    def setup_data(self):
-        try:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            file_path = os.path.join(
-                current_dir, "..", "data", config["data"]["file_path"]
-            )
-            logger.info(f"Attempting to process data from: {file_path}")
-
-            self.n_scats = tk.StringVar(value="all")
-            result = process_data(file_path, n_scats=None)
-
-            if isinstance(result, tuple) and len(result) == 3:
-                self.df, self.scaler, self.street_segments = result
-                self.model_data = prepare_model_data(self.df)
-                self.setup_models()
-                self.update_dropdowns()
-                self.data_loaded = True
-            else:
-                raise ValueError(f"Unexpected result from process_data: {result}")
-
-        except Exception as e:
-            logger.error(f"Error setting up data: {e}", exc_info=True)
-            self.show_error_message(
-                f"Failed to load data: {str(e)}\nPlease check the console for more information."
-            )
+        self.show_loading_screen()
 
     def setup_models(self):
         for name in config["training"]["models"]:
@@ -146,6 +119,63 @@ class TFPSGUI:
 
         self.create_prediction_tab()
         self.create_route_guidance_map_tab()
+        
+    def show_loading_screen(self):
+        self.loading_frame = ttk.Frame(self.master)
+        self.loading_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        
+        ttk.Label(self.loading_frame, text="Loading data...").pack()
+        
+        self.progress_bar = ttk.Progressbar(self.loading_frame, length=300, mode='determinate')
+        self.progress_bar.pack(pady=10)
+        
+        self.progress_label = ttk.Label(self.loading_frame, text="0%")
+        self.progress_label.pack()
+
+        self.master.update()
+        
+        # Start data loading in a separate thread
+        threading.Thread(target=self.load_data, daemon=True).start()
+        
+    def load_data(self):
+        try:
+            for i in range(101):
+                time.sleep(0.1)  # Sleep for 0.1 seconds, total time will be 10 seconds
+                self.master.after(0, self.update_progress_bar, i)
+            
+            # Simulate data loading here
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            file_path = os.path.join(current_dir, "..", "data", config["data"]["file_path"])
+            logger.info(f"Attempting to process data from: {file_path}")
+
+            self.n_scats = tk.StringVar(value="all")
+            result = process_data(file_path, n_scats=None)
+
+            if isinstance(result, tuple) and len(result) == 3:
+                self.df, self.scaler, self.street_segments = result
+                self.model_data = prepare_model_data(self.df)
+                self.setup_models()
+                self.data_loaded = True
+            else:
+                raise ValueError(f"Unexpected result from process_data: {result}")
+
+        except Exception as e:
+            logger.error(f"Error setting up data: {e}", exc_info=True)
+            self.master.after(0, lambda: self.show_error_message(f"Failed to load data: {str(e)}\nPlease check the console for more information."))
+        finally:
+            self.master.after(0, self.finish_loading)
+    def update_progress_bar(self, value):
+        self.progress_bar['value'] = value
+        self.progress_label.config(text=f"{value}%")
+        self.master.update_idletasks()
+
+    def finish_loading(self):
+        self.loading_frame.destroy()
+        if self.data_loaded:
+            self.update_dropdowns()
+            self.notebook.pack(fill=tk.BOTH, expand=True)
+        else:
+            self.show_error_message("Failed to load data. Please check the console for more information.")
 
     def create_prediction_tab(self):
         pred_frame = ttk.Frame(self.notebook)
@@ -443,11 +473,9 @@ class TFPSGUI:
 
     def show_map(self):
         if not self.data_loaded:
-            messagebox.showerror(
-                "Data Not Loaded",
-                "Data has not been loaded. Please check the console for errors.",
-            )
-            return 
+            messagebox.showinfo("Data Loading", "Please wait while the data is being loaded.")
+            return
+        
         try:
             if self.map is None:
                 if self.df is None or self.street_segments is None:
@@ -510,6 +538,10 @@ class TFPSGUI:
         webbrowser.open('file://' + self.map_file)
 
     def show_error_message(self, message):
+        if not self.data_loaded:
+            messagebox.showinfo("Data Loading", "Please wait while the data is being loaded.")
+            return
+        
         error_frame = ttk.Frame(self.master)
         error_frame.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
 
