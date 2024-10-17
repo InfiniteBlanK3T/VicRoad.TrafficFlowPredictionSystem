@@ -6,11 +6,7 @@ COS30018-Intelligent Systems - Semester 2 2024
 ## Setup
 ### Prerequisite - Installation:
 #### Installing `pyenv` - Python virtual environment:
-- For Mac
-` brew install pyenv`
-- For Linux:
-`sudo apt install pyenv`
-
+ - `curl https://pyenv.run | bash`
 #### Installing `graphviz` - Modelling graph:
 - For Mac:
 `brew install graphviz`
