@@ -1,0 +1,16 @@
+# config.yml
+data:
+  file_path: 'Scats-Data-October-2006-Bundoora.csv'
+  lag: 12
+  n_scats_options: [5, 10, 'all']
+
+model:
+  batch_size: 256
+  epochs: 3
+  validation_split: 0.05
+
+training:
+  models: ['lstm', 'gru', 'bilstm', 'cnnlstm', 'saes']
+
+gui:
+  window_size: '1400x800'
