@@ -1,14 +1,51 @@
 import networkx as nx
 import numpy as np
+import math
 
 
 def calculate_travel_time(volume, distance):
-    """Calculate travel time based on volume and distance."""
-    base_time = distance / 60  # Assuming 60 km/h speed limit
-    congestion_factor = 1 + (volume / 1000)  # Arbitrary congestion factor
+    """
+    Calculate travel time based on volume and distance.
+    Assumptions:
+    1. 64 km/h free flow speed
+    2. 1500 max capacity for each SCATS site
+    """
+
+    free_flow_speed = 64.0
+    capacity_speed = free_flow_speed / 2
+    max_flow = 1500.0
+
+    if volume > max_flow:
+        raise ValueError(f"Flow rate exceeds max flow assumption")
+
+    var_a = -1.0 * max_flow / (capacity_speed**2)
+    var_b = -2.0 * capacity_speed * var_a
+
+    # Given equation: x = var_a * y**2 + var_b * y, plug into quadratic formula
+    # Calculate the discriminant
+    discriminant = var_b**2 - 4 * var_a * volume * -1
+
+    traffic_speeds = []
+
+    # At max flow
+    if discriminant == 0:
+        traffic_speed1 = -1 * var_b / (2 * var_a)
+        traffic_speeds.append(traffic_speed1)
+    else:
+        # if under congested
+        traffic_speed1 = (-var_b - math.sqrt(discriminant)) / (2 * var_a)
+        traffic_speeds.append(traffic_speed1)
+        # if over congested
+        traffic_speed2 = (-var_b + math.sqrt(discriminant)) / (2 * var_a)
+        traffic_speeds.append(traffic_speed2)
+
+    # Need to add way to determine if traffic is over or under maximum flow, using default of under
+    traffic_time = 60 * (distance / traffic_speeds[0]) + 0.5
+    # Adding 30 seconds (0.5 minutes) for intersection delay
+
     return (
-        base_time * congestion_factor + 0.5
-    )  # Adding 30 seconds (0.5 minutes) for intersection delay
+        traffic_time
+    )
 
 
 def create_graph(df, street_segments):
