@@ -5,7 +5,7 @@ COS30018-Intelligent Systems - Semester 2 2024
 
 ## Preliminary
 ### Prerequisite - Installation:
-#### 1. Installing `pyenv` - Python virtual environment: [For more info](https://github.com/pyenv/pyenv?tab=readme-ov-file#installation)
+#### 1. Installing `pyenv` - Python virtual environment: [For more info of PyENV](https://github.com/pyenv/pyenv?tab=readme-ov-file#installation)
  - `curl https://pyenv.run | bash`
 #### Adding `pyenv` to your shell configuration (`~/.bashrc` or `~/.zshrc`)
 > [!WARNING]  
@@ -58,7 +58,7 @@ I have created `scripts/setup_dev_env.sh` to automate process above assuming tha
 - `docs/`: Project documentation
 
 ## Usage
-Project has 3 main option:
+Project has 3 main options:
 
 ### 1. Training
 > [!INFO]
