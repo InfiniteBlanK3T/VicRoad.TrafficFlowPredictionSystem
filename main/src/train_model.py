@@ -12,47 +12,88 @@ import pandas as pd
 from data.dataSCATSMap import process_data, prepare_model_data
 from model import model
 from keras.models import Model
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load configuration
-with open('config.yml', 'r') as config_file:
-    config = yaml.safe_load(config_file)
+try:
+    with open('config.yml', 'r') as config_file:
+        config = yaml.safe_load(config_file)
+except FileNotFoundError:
+    logger.error("config.yml file not found.")
+    sys.exit(1)
+except yaml.YAMLError as e:
+    logger.error(f"Error parsing config.yml: {str(e)}")
+    sys.exit(1)
 
 def train_model(model, X_train, y_train, name, scats, config):
-    """Train a single model."""
-    model.compile(loss="mse", optimizer="rmsprop", metrics=['mape'])
-    hist = model.fit(
-        X_train, y_train,
-        batch_size=config['model']['batch_size'],
-        epochs=config['model']['epochs'],
-        validation_split=config['model']['validation_split'])
+    """
+    Train a single model and save its weights and loss history.
+    
+    Args:
+        model (keras.Model): The model to train.
+        X_train (np.array): Training input data.
+        y_train (np.array): Training target data.
+        name (str): Name of the model.
+        scats (int): SCATS number.
+        config (dict): Configuration dictionary.
+    """
+    try:
+        model.compile(loss="mse", optimizer="rmsprop", metrics=['mape'])
+        hist = model.fit(
+            X_train, y_train,
+            batch_size=config['model']['batch_size'],
+            epochs=config['model']['epochs'],
+            validation_split=config['model']['validation_split'])
 
-    model_save_path = f"{config['training']['model_save_path']}/{name}_{scats}.h5"
-    model.save(model_save_path)
-    pd.DataFrame.from_dict(hist.history).to_csv(f"{config['training']['model_save_path']}/{name}_{scats}_loss.csv", encoding='utf-8', index=False)
+        model_save_path = f"{config['training']['model_save_path']}/{name}_{scats}.h5"
+        model.save(model_save_path)
+        pd.DataFrame.from_dict(hist.history).to_csv(f"{config['training']['model_save_path']}/{name}_{scats}_loss.csv", encoding='utf-8', index=False)
+        logger.info(f"Model {name} for SCATS {scats} trained and saved successfully.")
+    except Exception as e:
+        logger.error(f"Error training model {name} for SCATS {scats}: {str(e)}")
+        raise
 
 def train_seas(models, X_train, y_train, name, scats, config):
-    """Train the SAEs model."""
-    temp = X_train
+    """
+    Train the SAEs model.
+    
+    Args:
+        models (list): List of SAE models.
+        X_train (np.array): Training input data.
+        y_train (np.array): Training target data.
+        name (str): Name of the model.
+        scats (int): SCATS number.
+        config (dict): Configuration dictionary.
+    """
+    try:
+        temp = X_train
 
-    for i in range(len(models) - 1):
-        if i > 0:
-            p = models[i - 1]
-            hidden_layer_model = Model(p.input, p.get_layer('hidden').output)
-            temp = hidden_layer_model.predict(temp)
+        for i in range(len(models) - 1):
+            if i > 0:
+                p = models[i - 1]
+                hidden_layer_model = Model(p.input, p.get_layer('hidden').output)
+                temp = hidden_layer_model.predict(temp)
 
-        m = models[i]
-        m.compile(loss="mse", optimizer="rmsprop", metrics=['mape'])
-        m.fit(temp, y_train, batch_size=config['model']['batch_size'],
-              epochs=config['model']['epochs'],
-              validation_split=config['model']['validation_split'])
-        models[i] = m
+            m = models[i]
+            m.compile(loss="mse", optimizer="rmsprop", metrics=['mape'])
+            m.fit(temp, y_train, batch_size=config['model']['batch_size'],
+                  epochs=config['model']['epochs'],
+                  validation_split=config['model']['validation_split'])
+            models[i] = m
 
-    saes = models[-1]
-    for i in range(len(models) - 1):
-        weights = models[i].get_layer('hidden').get_weights()
-        saes.get_layer(f'hidden{i + 1}').set_weights(weights)
+        saes = models[-1]
+        for i in range(len(models) - 1):
+            weights = models[i].get_layer('hidden').get_weights()
+            saes.get_layer(f'hidden{i + 1}').set_weights(weights)
 
-    train_model(saes, X_train, y_train, name, scats, config)
+        train_model(saes, X_train, y_train, name, scats, config)
+    except Exception as e:
+        logger.error(f"Error training SAEs model for SCATS {scats}: {str(e)}")
+        raise
 
 def main():
     os.makedirs(config['training']['model_save_path'], exist_ok=True)
@@ -63,34 +104,38 @@ def main():
 
     lag = config['data']['lag']
     file_path = config['data']['file_path']
-    df_melted, scaler, street_segments = process_data(file_path, lag, n_scats=args.n_scats)
-    data_dict = prepare_model_data(df_melted, sequence_length=lag)
+    
+    try:
+        df_melted, scaler, street_segments = process_data(file_path, lag, n_scats=args.n_scats)
+        data_dict = prepare_model_data(df_melted, sequence_length=lag)
 
-    for scats, data in data_dict.items():
-        X_train, y_train = data['X_train'], data['y_train']
+        for scats, data in data_dict.items():
+            X_train, y_train = data['X_train'], data['y_train']
 
-        if args.model == 'lstm':
-            X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-            m = model.get_lstm([lag, 64, 64, 1])
-        elif args.model == 'gru':
-            X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-            m = model.get_gru([lag, 64, 64, 1])
-        elif args.model == 'bilstm':
-            X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-            m = model.get_bidirectional_lstm([lag, 64, 64, 1])
-        elif args.model == 'cnnlstm':
-            X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-            m = model.get_cnn_lstm([lag, 64, 64, 1], n_steps=lag, n_features=1)
-        elif args.model == 'saes':
-            X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1]))
-            m = model.get_saes([lag, 400, 400, 400, 1])
-            train_seas(m, X_train, y_train, args.model, scats, config)
-            continue
-        else:
-            print(f"Unknown model: {args.model}")
-            return
+            if args.model == 'lstm':
+                X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+                m = model.get_lstm([lag, 64, 64, 1])
+            elif args.model == 'gru':
+                X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+                m = model.get_gru([lag, 64, 64, 1])
+            elif args.model == 'bilstm':
+                X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+                m = model.get_bidirectional_lstm([lag, 64, 64, 1])
+            elif args.model == 'cnnlstm':
+                X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+                m = model.get_cnn_lstm([lag, 64, 64, 1], n_steps=lag, n_features=1)
+            elif args.model == 'saes':
+                X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1]))
+                m = model.get_saes([lag, 400, 400, 400, 1])
+                train_seas(m, X_train, y_train, args.model, scats, config)
+                continue
+            else:
+                logger.error(f"Unknown model: {args.model}")
+                return
 
-        train_model(m, X_train, y_train, args.model, scats, config)
+            train_model(m, X_train, y_train, args.model, scats, config)
+    except Exception as e:
+        logger.error(f"An error occurred during model training: {str(e)}")
 
 if __name__ == '__main__':
     main()
