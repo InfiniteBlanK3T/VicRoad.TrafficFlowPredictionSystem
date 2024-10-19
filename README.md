@@ -5,23 +5,17 @@ COS30018-Intelligent Systems - Semester 2 2024
 
 ## Setup
 ### Prerequisite - Installation:
-#### Installing `pyenv` - Python virtual environment:
-- For Mac
-` brew install pyenv`
-- For Linux:
-`sudo apt install pyenv`
-
-#### Installing `graphviz` - Modelling graph:
-- For Mac:
-`brew install graphviz`
-- For linux:
-`sudo apt install graphviz`
+#### Installing `pyenv` - Python virtual environment: [For more info](https://github.com/pyenv/pyenv?tab=readme-ov-file#installation)
+ - `curl https://pyenv.run | bash`
+#### Adding `pyenv` to your shell configuration (`~/.bashrc` or `~/.zshrc`)
+> [!WARNING]  
+> Your PC may need `build-essential` and these dependencies
+- `sudo apt install -y build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl git`
 
 ## Installation
 1. Install pyenv (python virtual environment) python 3.9 or in my case I use 3.10.12 it works fine:
 - `pyenv install <python version here>`
 - `pyenv install 3.10.12`
-
 2. Create Virtual Environment Directory - with Python version installed above:
 > [!IMPORTANT]  
 > It is important that you activate your virtual environment first before installing dependencies `source .venv/bin/activate`
@@ -29,13 +23,13 @@ COS30018-Intelligent Systems - Semester 2 2024
 (.venv - what ever name you like I like .venv) in which you would put all your dependencies in this Directory here:
 - `mkdir .venv`
 
-- Set the version you want to install - recommend 3.10.12 it works on my PC:
+3. Set the version you want to install - recommend 3.10.12 it works on my PC:
 `pyenv local 3.10.12`
-- Installing Python Virtual Environment onto that `.venv` folder:
+4. Installing Python Virtual Environment onto that `.venv` folder:
 `pyenv exec python -m venv .venv`
-- Activate virtual environment
+5. Activate virtual environment
 `source .venv/bin/activate`
-Installing all the dependencies from requirements.txt
+6. Installing all the dependencies from requirements.txt
 `pip install -r requirements.txt`
 
 ## Graphs
