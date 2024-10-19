@@ -2,10 +2,19 @@ import json
 import pandas as pd
 from tabulate import tabulate
 import logging
+from datetime import datetime
+import os
+import yaml
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Load configuration
+config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.yml')
+
+with open(config_path, 'r') as config_file:
+    config = yaml.safe_load(config_file)
 
 def generate_report(results):
     """
@@ -61,17 +70,30 @@ def generate_report(results):
         logger.error(f"An error occurred while generating the report: {str(e)}")
         raise
 
+def save_report(results):
+    """
+    Save the generated report to a file with a timestamp.
+    
+    Args:
+        results (dict): A dictionary containing evaluation results for each SCATS and model.
+    """
+    report = generate_report(results)
+    
+    current_time = datetime.now().strftime("%Y%m%d-%H%M")
+    os.makedirs(config["evaluation"]["report-summary_save_path"], exist_ok=True)
+    report_filename = os.path.join(config["evaluation"]["report-summary_save_path"], f"{current_time}-model-comparison-report.md")
+    
+    with open(report_filename, 'w') as f:
+        f.write(report)
+    
+    logger.info(f"Report generated successfully: {report_filename}")
+
 if __name__ == '__main__':
     try:
         with open('evaluation_results.json', 'r') as f:
             results = json.load(f)
         
-        report = generate_report(results)
-        
-        with open('model_comparison_report.md', 'w') as f:
-            f.write(report)
-        
-        logger.info("Report generated successfully.")
+        save_report(results)
     except FileNotFoundError:
         logger.error("evaluation_results.json file not found.")
     except json.JSONDecodeError:

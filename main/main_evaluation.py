@@ -1,10 +1,13 @@
 from src.evaluation import evaluate_models
 from src.visualisation import plot_metric_comparison, plot_model_performance
-from src.report_generator import generate_report
+from src.report_generator import save_report
 import yaml
+import os
 
 # Load configuration
-with open('config.yml', 'r') as config_file:
+config_path = os.path.join(os.path.dirname(__file__), 'config.yml')
+
+with open(config_path, 'r') as config_file:
     config = yaml.safe_load(config_file)
 
 def main():
@@ -21,10 +24,8 @@ def main():
         plot_metric_comparison(results, metric)
     plot_model_performance(results)
 
-    # Generate report
-    report = generate_report(results)
-    with open('model_comparison_report.md', 'w') as f:
-        f.write(report)
+    # Generate and save report
+    save_report(results)
 
 if __name__ == '__main__':
     main()

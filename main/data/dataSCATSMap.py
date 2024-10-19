@@ -13,12 +13,18 @@ import os
 import yaml
 
 # Load configuration
-with open('config.yml', 'r') as config_file:
+config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.yml')
+
+with open(config_path, 'r') as config_file:
     config = yaml.safe_load(config_file)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+""" WARNING PLEASE PROCEED WITH CARE IN CHANGING THIS FILE CODE """
+""" ANY CHANGES IN THIS FILE MAY AFFECT THE WHOLE SYSTEM """
+
 
 def process_data(file_path, lag=12, n_scats=None):
     """

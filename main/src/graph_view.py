@@ -27,7 +27,9 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Load configuration
-with open("config.yml", "r") as config_file:
+config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.yml')
+
+with open(config_path, 'r') as config_file:
     config = yaml.safe_load(config_file)
 
 
@@ -72,7 +74,7 @@ class TFPSGUI:
                 self.models[name] = {}
                 self.available_scats[name] = set()
                 for scats in self.df["SCATS Number"].unique():
-                    model_path = os.path.join("model", "trained", f"{name}_{scats}.h5")
+                    model_path = os.path.join(config['training']['model_save_path'], f"{name}_{scats}.h5")
                     if os.path.exists(model_path):
                         self.models[name][scats] = load_model(model_path)
                         self.available_scats[name].add(scats)
@@ -166,17 +168,41 @@ class TFPSGUI:
         self.master.update()
         
         # Start data loading in a separate thread
-        threading.Thread(target=self.load_data, daemon=True).start()
+        self.loading_thread = threading.Thread(target=self.load_data, daemon=True)
+        self.loading_thread.start()
         
+        # Start progress bar update
+        self.update_progress_bar()
+
+    def update_progress_bar(self):
+        """
+        Update the progress bar during data loading.
+
+        Args:
+            value (int): Current progress value (0-95).
+        """
+        if self.loading_thread.is_alive():
+            # Simulate progress
+            current_value = self.progress_bar['value']
+            # WARNING:
+            # Reason only update up to 95% is because the last 5% is for finishing loading.
+            # will get stuck if changed 100 deu to (.!frame.!progressbar) is no longer valid
+            if current_value < 95: # Only update up to 95%
+                self.progress_bar['value'] += 1
+                self.progress_label.config(text=f"{int(self.progress_bar['value'])}%")
+            
+            # Schedule the next update
+            self.master.after(100, self.update_progress_bar)
+        else:
+            # Loading is complete
+            self.loading_complete = True
+            self.master.after(0, self.finish_loading)
+            
     def load_data(self):
         """
         Load and process the SCATS data.
         """
         try:
-            for i in range(101):
-                time.sleep(0.1)  # Sleep for 0.1 seconds, total time will be 10 seconds
-                self.master.after(0, self.update_progress_bar, i)
-            
             current_dir = os.path.dirname(os.path.abspath(__file__))
             file_path = os.path.join(current_dir, "..", "data", config["data"]["file_path"])
             logger.info(f"Attempting to process data from: {file_path}")
@@ -197,18 +223,7 @@ class TFPSGUI:
             self.master.after(0, lambda: self.show_error_message(f"Failed to load data: {str(e)}\nPlease check the console for more information."))
         finally:
             self.master.after(0, self.finish_loading)
-
-    def update_progress_bar(self, value):
-        """
-        Update the progress bar during data loading.
-
-        Args:
-            value (int): Current progress value (0-100).
-        """
-        self.progress_bar['value'] = value
-        self.progress_label.config(text=f"{value}%")
-        self.master.update_idletasks()
-
+            
     def finish_loading(self):
         """
         Finish the loading process and display the main GUI.
@@ -219,7 +234,11 @@ class TFPSGUI:
             self.notebook.pack(fill=tk.BOTH, expand=True)
         else:
             self.show_error_message("Failed to load data. Please check the console for more information.")
-
+            
+        # Destroy the loading frame after updating the GUI
+        if hasattr(self, 'loading_frame'):
+            self.loading_frame.destroy()
+            
     def create_prediction_tab(self):
         """
         Create the traffic prediction tab in the GUI.

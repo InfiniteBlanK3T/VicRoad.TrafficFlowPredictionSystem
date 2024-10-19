@@ -20,19 +20,15 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore")
 
 # Load configuration
-try:
-    with open("config.yml", "r") as config_file:
-        config = yaml.safe_load(config_file)
-except FileNotFoundError:
-    logger.error("config.yml file not found.")
-    raise
-except yaml.YAMLError as e:
-    logger.error(f"Error parsing config.yml: {str(e)}")
-    raise
+config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.yml')
+
+with open(config_path, 'r') as config_file:
+    config = yaml.safe_load(config_file)
+
 
 # Create necessary directories
 os.makedirs(config['training']['model_save_path'], exist_ok=True)
-os.makedirs(config['evaluation']['image_save_path'], exist_ok=True)
+os.makedirs(config['evaluation']['prediction_save_path'], exist_ok=True)
 
 def MAPE(y_true, y_pred):
     """
@@ -116,7 +112,7 @@ def plot_results(y_true, y_preds, names, scats_number):
         plt.tight_layout()
         
         current_time = datetime.now().strftime("%Y%m%d-%H%M")
-        plt.savefig(f"{config['evaluation']['image_save_path']}/{current_time}-ScatsData_all_predictions_{scats_number}.png", dpi=300, bbox_inches='tight')
+        plt.savefig(f"{config['evaluation']['prediction_save_path']}/{current_time}-ScatsData_all_predictions_{scats_number}.png", dpi=300, bbox_inches='tight')
         plt.close()
     except Exception as e:
         logger.error(f"Error in plot_results: {str(e)}")
@@ -162,7 +158,7 @@ def plot_individual_results(y_true, y_preds, names, scats_number):
             ax.xaxis.set_major_locator(mdates.HourLocator(interval=3))
 
         current_time = datetime.now().strftime("%Y%m%d-%H%M")
-        plt.savefig(f"{config['evaluation']['image_save_path']}/{current_time}-ScatsData_individual_predictions_{scats_number}.png", dpi=300, bbox_inches='tight')
+        plt.savefig(f"{config['evaluation']['prediction_save_path']}/{current_time}-ScatsData_individual_predictions_{scats_number}.png", dpi=300, bbox_inches='tight')
         plt.close()
     except Exception as e:
         logger.error(f"Error in plot_individual_results: {str(e)}")

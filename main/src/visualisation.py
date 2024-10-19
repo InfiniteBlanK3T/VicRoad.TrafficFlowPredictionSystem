@@ -5,10 +5,18 @@ import json
 import numpy as np
 import logging
 import os
+import yaml
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Load configuration
+config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.yml')
+
+with open(config_path, 'r') as config_file:
+    config = yaml.safe_load(config_file)
 
 def plot_metric_comparison(results, metric):
     """
@@ -42,8 +50,11 @@ def plot_metric_comparison(results, metric):
                      horizontalalignment='center', verticalalignment='bottom')
         
         plt.tight_layout()
-        os.makedirs('images', exist_ok=True)
-        plt.savefig(f'images/metric_comparison_{metric}.png')
+        
+        os.makedirs(config["evaluation"]["metric_save_path"], exist_ok=True)
+        current_time = datetime.now().strftime("%Y%m%d-%H%M")
+        plt.savefig(os.path.join(config["evaluation"]["metric_save_path"], f'{current_time}-metric_comparison_{metric}.png'))
+        
         plt.close()
         logger.info(f"Metric comparison plot for {metric} saved successfully.")
     except KeyError:
@@ -87,8 +98,11 @@ def plot_model_performance(results):
         plt.xlabel('Models', fontsize=12)
         plt.xticks(rotation=45)
         plt.tight_layout()
-        os.makedirs('images', exist_ok=True)
-        plt.savefig('images/model_performance_comparison.png')
+        
+        os.makedirs(config["evaluation"]["metric_save_path"], exist_ok=True)
+        current_time = datetime.now().strftime("%Y%m%d-%H%M")
+        plt.savefig(os.path.join(config["evaluation"]["metric_save_path"], f'{current_time}-model_performance_comparison.png'))
+        
         plt.close()
         logger.info("Model performance comparison plot saved successfully.")
     except Exception as e:

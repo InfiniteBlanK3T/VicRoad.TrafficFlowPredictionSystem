@@ -95,11 +95,19 @@ def train_seas(models, X_train, y_train, name, scats, config):
         logger.error(f"Error training SAEs model for SCATS {scats}: {str(e)}")
         raise
 
+def parse_n_scats(value):
+    if value.lower() == 'all':
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("n_scats must be 'all' or an integer")
+    
 def main():
     os.makedirs(config['training']['model_save_path'], exist_ok=True)
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="lstm", help="Model to train: lstm, gru, bilstm, cnnlstm, saes")
-    parser.add_argument("--n_scats", type=int, default=None, help="Number of SCATS to train (5, 10, or None for all)")
+    parser.add_argument("--n_scats", type=parse_n_scats, default=None, help="Number of SCATS to train ('all' or an integer)")
     args = parser.parse_args()
 
     lag = config['data']['lag']

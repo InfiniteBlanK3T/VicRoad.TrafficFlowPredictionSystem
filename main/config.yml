@@ -1,8 +1,10 @@
-# config.yml
 data:
   file_path: 'Scats-Data-October-2006-Bundoora.csv'
   lag: 12
   n_scats_options: [5, 10, 'all']
+
+gui:
+  window_size: '1400x800'
 
 model:
   batch_size: 256
@@ -11,10 +13,10 @@ model:
 
 training:
   models: ['lstm', 'gru', 'bilstm', 'cnnlstm', 'saes']
-  model_save_path: 'model/trained'
+  model_save_path: 'main/model/trained'
 
 evaluation:
-  image_save_path: 'model/evaluation'  
+  metric_save_path: 'reports/metric-comparison/'
+  prediction_save_path: 'reports/prediction-comparison/'
+  report-summary_save_path: 'reports/summary/'  
 
-gui:
-  window_size: '1400x800'
