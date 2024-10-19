@@ -60,7 +60,7 @@ I have created `scripts/setup_dev_env.sh` to automate process above assuming tha
 ## Usage
 Project has 3 main option:
 
-### Training
+### 1. Training
 > [!INFO]
 > Please make sure to add permission to run it with `chmod +x main/scripts/train.sh`
 The `train_model.py` or with script `main/scripts/train.sh` trains machine learning models and saves their weights and loss history.
@@ -68,6 +68,8 @@ The `train_model.py` or with script `main/scripts/train.sh` trains machine learn
 - **Models**: LSTM, GRU, SAES, BiLSTM, CNN-LSTM
 - **Training History**: Saves training history including loss and MAPE to a CSV file.
 - **Model Weights**: Saves trained model weights with filenames that include the current timestamp.
+
+For detailed information, refer to [Training Model Documentation](https://github.com/InfiniteBlanK3T/VicRoad.TrafficFlowPredictionSystem/blob/main/docs/TrainingModel.md)
 
 #### Usage
 To train the models, use the following command:
@@ -83,7 +85,7 @@ training:
   model_save_path: 'main/model/trained'
 ```
 
-### Main GUI interactive
+### 2. Main GUI interactive
 The `graph_view.py` and `dataSCATSMap.py` scripts provide a graphical user interface (GUI) for the Traffic Flow Prediction System (TFPS).
 
 #### Summary
@@ -113,7 +115,18 @@ model:
   epochs: 3
   validation_split: 0.05
 ```
-#### Report
+
+#### Interaction between Modules
+
+1. Data Processing: `graph_view.py` uses `process_data()` from [dataSCATSMap.py] to load and process SCATS data.
+2. Model Data Preparation: `prepare_model_data()` from [dataSCATSMap.py] is used in [graph_view.py] to prepare data for model training and prediction.
+3. Map Creation: `create_traffic_map()` from [dataSCATSMap.py] is used in [graph_view.py] to create and display the traffic map.
+4. Street Segments: The street segments created by `create_street_segments()` in [dataSCATSMap.py] are used in [graph_view.py] for route guidance and map visualization.
+
+For detailed infromation:
+- Refer to [graph_view.py Documentation](https://github.com/InfiniteBlanK3T/VicRoad.TrafficFlowPredictionSystem/blob/main/docs/Graph_View.md)
+- Refer to [dataSCATSMap.py Documentation](https://github.com/InfiniteBlanK3T/VicRoad.TrafficFlowPredictionSystem/blob/main/docs/dataSCATSMap.md)
+### 3. Report
 The main_evaluation.py script generates various reports and visualizations to evaluate model performance.
 
 #### Summary
@@ -131,7 +144,7 @@ evaluation:
   prediction_save_path: 'reports/prediction-comparison/'
   report_summary_save_path: 'reports/summary/'
 ```
-For detailed information, refer to [Report Documentation]()
+For detailed information, refer to [Report Documentation](https://github.com/InfiniteBlanK3T/VicRoad.TrafficFlowPredictionSystem/blob/main/docs/Report.md)
 
 ## Contributing
 
