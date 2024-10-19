@@ -21,7 +21,7 @@ from matplotlib import dates as mdates
 
 from data.dataSCATSMap import process_data, prepare_model_data, create_traffic_map
 from src.route_guidance import route_guidance
-from src.utils import ( format_route_result)
+from src.utils import format_route_result
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -32,7 +32,20 @@ with open("config.yml", "r") as config_file:
 
 
 class TFPSGUI:
+    """
+    Traffic Flow Prediction System Graphical User Interface.
+    
+    This class creates and manages the main GUI for the Traffic Flow Prediction System.
+    It handles data loading, prediction, route guidance, and map visualization.
+    """
+
     def __init__(self, master):
+        """
+        Initialize the TFPSGUI.
+
+        Args:
+            master (tk.Tk): The root window for the GUI.
+        """
         self.master = master
         master.title("Traffic Flow Prediction System")
         master.geometry(config["gui"]["window_size"])
@@ -51,6 +64,9 @@ class TFPSGUI:
         self.show_loading_screen()
 
     def setup_models(self):
+        """
+        Load trained models for each SCATS number.
+        """
         for name in config["training"]["models"]:
             try:
                 self.models[name] = {}
@@ -69,6 +85,9 @@ class TFPSGUI:
         self.update_street_options()
 
     def update_dropdowns(self):
+        """
+        Update the dropdown menus with available options from the loaded data.
+        """
         if self.df is not None:
             scats_numbers = sorted(self.df["SCATS Number"].unique())
             self.origin_dropdown["values"] = scats_numbers
@@ -80,6 +99,9 @@ class TFPSGUI:
                 self.date_var.set(dates[0])
 
     def update_model_dropdown(self):
+        """
+        Update the model dropdown menu with available trained models.
+        """
         available_models = [name for name in self.models if self.models[name]]
         self.model_dropdown["values"] = available_models
         if available_models:
@@ -92,6 +114,9 @@ class TFPSGUI:
             )
 
     def update_street_options(self, *args):
+        """
+        Update the street dropdown menu based on the selected model.
+        """
         model_name = self.model_var.get().lower()
         if not model_name:
             self.street_dropdown["values"] = []
@@ -114,6 +139,9 @@ class TFPSGUI:
             )
 
     def create_widgets(self):
+        """
+        Create and set up all GUI widgets.
+        """
         self.notebook = ttk.Notebook(self.master)
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
@@ -121,6 +149,9 @@ class TFPSGUI:
         self.create_route_guidance_map_tab()
         
     def show_loading_screen(self):
+        """
+        Display a loading screen while data is being processed.
+        """
         self.loading_frame = ttk.Frame(self.master)
         self.loading_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         
@@ -138,12 +169,14 @@ class TFPSGUI:
         threading.Thread(target=self.load_data, daemon=True).start()
         
     def load_data(self):
+        """
+        Load and process the SCATS data.
+        """
         try:
             for i in range(101):
                 time.sleep(0.1)  # Sleep for 0.1 seconds, total time will be 10 seconds
                 self.master.after(0, self.update_progress_bar, i)
             
-            # Simulate data loading here
             current_dir = os.path.dirname(os.path.abspath(__file__))
             file_path = os.path.join(current_dir, "..", "data", config["data"]["file_path"])
             logger.info(f"Attempting to process data from: {file_path}")
@@ -164,12 +197,22 @@ class TFPSGUI:
             self.master.after(0, lambda: self.show_error_message(f"Failed to load data: {str(e)}\nPlease check the console for more information."))
         finally:
             self.master.after(0, self.finish_loading)
+
     def update_progress_bar(self, value):
+        """
+        Update the progress bar during data loading.
+
+        Args:
+            value (int): Current progress value (0-100).
+        """
         self.progress_bar['value'] = value
         self.progress_label.config(text=f"{value}%")
         self.master.update_idletasks()
 
     def finish_loading(self):
+        """
+        Finish the loading process and display the main GUI.
+        """
         self.loading_frame.destroy()
         if self.data_loaded:
             self.update_dropdowns()
@@ -178,6 +221,9 @@ class TFPSGUI:
             self.show_error_message("Failed to load data. Please check the console for more information.")
 
     def create_prediction_tab(self):
+        """
+        Create the traffic prediction tab in the GUI.
+        """
         pred_frame = ttk.Frame(self.notebook)
         self.notebook.add(pred_frame, text="Traffic Prediction")
 
@@ -228,6 +274,9 @@ class TFPSGUI:
         self.graph_frame.pack(pady=5, padx=5, fill=tk.BOTH, expand=True)
 
     def create_route_guidance_map_tab(self):
+        """
+        Create the route guidance and map tab in the GUI.
+        """
         combined_frame = ttk.Frame(self.notebook)
         self.notebook.add(combined_frame, text="Map & Route Guidance")
 
@@ -265,6 +314,9 @@ class TFPSGUI:
         self.show_map()
 
     def predict(self):
+        """
+        Perform traffic prediction based on user inputs.
+        """
         try:
             model_name = self.model_var.get().lower()
             street = self.street_var.get()
@@ -327,6 +379,17 @@ class TFPSGUI:
             messagebox.showerror("Prediction Error", str(e))
 
     def prepare_input_data(self, model_name, data_point, available_scats):
+        """
+        Prepare input data for the prediction model.
+
+        Args:
+            model_name (str): Name of the selected model.
+            data_point (pd.Series): Data point to prepare input for.
+            available_scats (pd.DataFrame): Available SCATS data.
+
+        Returns:
+            numpy.ndarray: Prepared input data for the model.
+        """
         scats_number = data_point["SCATS Number"]
         X_test = self.model_data[scats_number]["X_test"]
         
@@ -345,6 +408,16 @@ class TFPSGUI:
             return np.reshape(input_sequence, (1, sequence_length))
             
     def plot_prediction(self, street, date, day_data, predictions, actuals):
+        """
+        Plot the prediction results.
+
+        Args:
+            street (str): Name of the street.
+            date (str): Date of the prediction.
+            day_data (pd.DataFrame): Data for the selected day.
+            predictions (list): Predicted traffic volumes.
+            actuals (list): Actual traffic volumes.
+        """
         for widget in self.graph_frame.winfo_children():
             widget.destroy()
 
@@ -403,6 +476,15 @@ class TFPSGUI:
         self.add_tooltip(fig, ax, actual_line, predicted_line)
 
     def add_tooltip(self, fig, ax, actual_line, predicted_line):
+        """
+        Add a tooltip to the prediction plot.
+
+        Args:
+            fig (matplotlib.figure.Figure): The figure object.
+            ax (matplotlib.axes.Axes): The axes object.
+            actual_line (matplotlib.lines.Line2D): The actual data line.
+            predicted_line (matplotlib.lines.Line2D): The predicted data line.
+        """
         tooltip = ax.annotate("", xy=(0,0), xytext=(20,20), textcoords="offset points",
                             bbox=dict(boxstyle="round", fc="w"),
                             arrowprops=dict(arrowstyle="->"))
@@ -429,6 +511,15 @@ class TFPSGUI:
         fig.canvas.mpl_connect("motion_notify_event", update_tooltip)
         
     def highlight_time_range(self, ax, start, end, label):
+        """
+        Highlight a specific time range on the plot.
+
+        Args:
+            ax (matplotlib.axes.Axes): The axes object.
+            start (str): Start time of the range.
+            end (str): End time of the range.
+            label (str): Label for the highlighted range.
+        """
         date = mdates.num2date(ax.get_xlim()[0]).date()
         start_time = pd.to_datetime(f"{date} {start}")
         end_time = pd.to_datetime(f"{date} {end}")
@@ -444,6 +535,9 @@ class TFPSGUI:
         )
         
     def find_routes(self):
+        """
+        Find routes between selected origin and destination SCATS.
+        """
         try:
             origin = self.origin_var.get()
             destination = self.destination_var.get()
@@ -472,6 +566,9 @@ class TFPSGUI:
             )
 
     def show_map(self):
+        """
+        Display the traffic map.
+        """
         if not self.data_loaded:
             messagebox.showinfo("Data Loading", "Please wait while the data is being loaded.")
             return
@@ -494,6 +591,9 @@ class TFPSGUI:
             messagebox.showerror("Map Creation Error", f"An error occurred while creating the map: {str(e)}")
 
     def find_and_display_routes(self):
+        """
+        Find routes and display them on the map.
+        """
         if not self.data_loaded:
             messagebox.showerror("Data Not Loaded", "Data has not been loaded. Please check the console for errors.")
             return
@@ -522,6 +622,12 @@ class TFPSGUI:
             messagebox.showerror("Unexpected Error", f"An unexpected error occurred: {str(e)}")
 
     def update_map_with_route(self, route):
+        """
+        Update the map with the selected route.
+
+        Args:
+            route (list): List of SCATS numbers representing the route.
+        """
         if self.map is None:
             self.show_map()
 
@@ -538,6 +644,12 @@ class TFPSGUI:
         webbrowser.open('file://' + self.map_file)
 
     def show_error_message(self, message):
+        """
+        Display an error message in the GUI.
+
+        Args:
+            message (str): The error message to display.
+        """
         if not self.data_loaded:
             messagebox.showinfo("Data Loading", "Please wait while the data is being loaded.")
             return
@@ -558,6 +670,9 @@ class TFPSGUI:
 
 
 def main():
+    """
+    Main function to run the TFPSGUI application.
+    """
     root = tk.Tk()
     gui = TFPSGUI(root)
     root.mainloop()
@@ -567,5 +682,8 @@ if __name__ == "__main__":
     main()
 
 def __del__(self):
-        if self.map_file and os.path.exists(self.map_file):
-            os.unlink(self.map_file)
+    """
+    Destructor to clean up temporary files.
+    """
+    if self.map_file and os.path.exists(self.map_file):
+        os.unlink(self.map_file)
