@@ -4,7 +4,7 @@ Defination of NN model
 from keras.layers import Dense, Dropout, Activation, LSTM, GRU, Conv1D, MaxPooling1D, Flatten, TimeDistributed, Bidirectional
 from keras.models import Sequential
 
-''''''''' NEW MACHINE LEARNING TECHNIQUES'''''
+''''''''' NEW MACHINE LEARNING TECHNIQUES '''''''''
 
 def get_bidirectional_lstm(units):
     """Bidirectional LSTM
@@ -44,7 +44,7 @@ def get_cnn_lstm(units, n_steps, n_features):
     model.add(Dense(units[3], activation='linear'))
     return model
 
-
+''''''''' DEFAULT '''''''''
 def get_lstm(units):
     """LSTM(Long Short-Term Memory)
     Build LSTM Model.

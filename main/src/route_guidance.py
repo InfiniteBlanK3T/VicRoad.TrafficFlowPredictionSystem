@@ -1,56 +1,140 @@
 import networkx as nx
 import numpy as np
+import math
+import logging
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def calculate_travel_time(volume, distance):
-    """Calculate travel time based on volume and distance."""
-    base_time = distance / 60  # Assuming 60 km/h speed limit
-    congestion_factor = 1 + (volume / 1000)  # Arbitrary congestion factor
-    return (
-        base_time * congestion_factor + 0.5
-    )  # Adding 30 seconds (0.5 minutes) for intersection delay
+    """
+    Calculate travel time based on volume and distance.
+    
+    Assumptions:
+    1. 64 km/h free flow speed
+    2. 1500 max capacity for each SCATS site
+    
+    Args:
+        volume (float): Traffic volume.
+        distance (float): Distance between two points.
+    
+    Returns:
+        float: Calculated travel time in minutes.
+    
+    Raises:
+        ValueError: If the flow rate exceeds the maximum flow assumption.
+    """
+    free_flow_speed = 64.0
+    capacity_speed = free_flow_speed / 2
+    max_flow = 1500.0
 
+    if volume > max_flow:
+        raise ValueError(f"Flow rate ({volume}) exceeds max flow assumption ({max_flow})")
+
+    var_a = -1.0 * max_flow / (capacity_speed**2)
+    var_b = -2.0 * capacity_speed * var_a
+
+    # Given equation: x = var_a * y**2 + var_b * y, plug into quadratic formula
+    # Calculate the discriminant
+    discriminant = var_b**2 - 4 * var_a * volume * -1
+
+    traffic_speeds = []
+
+    # At max flow
+    if discriminant == 0:
+        traffic_speed1 = -1 * var_b / (2 * var_a)
+        traffic_speeds.append(traffic_speed1)
+    else:
+        # if under congested
+        traffic_speed1 = (-var_b - math.sqrt(discriminant)) / (2 * var_a)
+        traffic_speeds.append(traffic_speed1)
+        # if over congested
+        traffic_speed2 = (-var_b + math.sqrt(discriminant)) / (2 * var_a)
+        traffic_speeds.append(traffic_speed2)
+
+    # Need to add way to determine if traffic is over or under maximum flow, using default of under
+    traffic_time = 60 * (distance / traffic_speeds[0]) + 0.5
+    # Adding 30 seconds (0.5 minutes) for intersection delay
+
+    return traffic_time
 
 def create_graph(df, street_segments):
+    """
+    Create a graph representation of the street network.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing SCATS data.
+        street_segments (dict): Dictionary of street segments with traffic information.
+    
+    Returns:
+        nx.Graph: A NetworkX graph representing the street network.
+    
+    Raises:
+        ValueError: If the input DataFrame is empty or missing required columns.
+    """
+    if df.empty:
+        raise ValueError("The input DataFrame is empty.")
+    
+    required_columns = ['SCATS Number', 'NB_LATITUDE', 'NB_LONGITUDE', 'Street']
+    if not all(col in df.columns for col in required_columns):
+        raise ValueError("The DataFrame is missing required columns.")
+
     G = nx.Graph()
 
-    # Add all SCATS numbers as nodes
-    for scats, data in df.groupby("SCATS Number"):
-        G.add_node(
-            str(scats), pos=(data["NB_LATITUDE"].iloc[0], data["NB_LONGITUDE"].iloc[0])
-        )
+    try:
+        # Add all SCATS numbers as nodes
+        for scats, data in df.groupby("SCATS Number"):
+            G.add_node(
+                str(scats), pos=(data["NB_LATITUDE"].iloc[0], data["NB_LONGITUDE"].iloc[0])
+            )
 
-    # Connect nodes based on street segments
-    for street, segment in street_segments.items():
-        coords = segment["coords"]
-        avg_traffic = segment["avg_traffic"]
-        scats_on_street = df[df["Street"] == street]["SCATS Number"].unique()
+        # Connect nodes based on street segments
+        for street, segment in street_segments.items():
+            coords = segment["coords"]
+            avg_traffic = segment["avg_traffic"]
+            scats_on_street = df[df["Street"] == street]["SCATS Number"].unique()
 
-        for i in range(len(scats_on_street) - 1):
-            start = str(scats_on_street[i])
-            end = str(scats_on_street[i + 1])
-            if start in G and end in G:
-                start_pos = G.nodes[start]["pos"]
-                end_pos = G.nodes[end]["pos"]
-                distance = np.sqrt(
-                    (start_pos[0] - end_pos[0]) ** 2 + (start_pos[1] - end_pos[1]) ** 2
-                )
-                travel_time = calculate_travel_time(avg_traffic, distance)
-                G.add_edge(start, end, weight=travel_time, distance=distance)
+            for i in range(len(scats_on_street) - 1):
+                start = str(scats_on_street[i])
+                end = str(scats_on_street[i + 1])
+                if start in G and end in G:
+                    start_pos = G.nodes[start]["pos"]
+                    end_pos = G.nodes[end]["pos"]
+                    distance = np.sqrt(
+                        (start_pos[0] - end_pos[0]) ** 2 + (start_pos[1] - end_pos[1]) ** 2
+                    )
+                    travel_time = calculate_travel_time(avg_traffic, distance)
+                    G.add_edge(start, end, weight=travel_time, distance=distance)
 
-    return G
-
+        return G
+    except Exception as e:
+        logger.error(f"An error occurred while creating the graph: {str(e)}")
+        return None
 
 def find_routes(G, origin, destination, k=5):
+    """
+    Find k-shortest routes between origin and destination.
+    
+    Args:
+        G (nx.Graph): NetworkX graph representing the street network.
+        origin (str): Origin SCATS number.
+        destination (str): Destination SCATS number.
+        k (int): Number of routes to find (default is 5).
+    
+    Returns:
+        list: List of dictionaries containing route information.
+    
+    Raises:
+        ValueError: If origin or destination is not found in the graph, or if no path is found.
+    """
     origin = str(origin)
     destination = str(destination)
 
     if origin not in G:
         raise ValueError(f"Origin SCATS number {origin} not found in the graph.")
     if destination not in G:
-        raise ValueError(
-            f"Destination SCATS number {destination} not found in the graph."
-        )
+        raise ValueError(f"Destination SCATS number {destination} not found in the graph.")
 
     try:
         routes = list(
@@ -73,8 +157,29 @@ def find_routes(G, origin, destination, k=5):
 
     return formatted_routes
 
-
 def route_guidance(df, street_segments, origin, destination):
-    G = create_graph(df, street_segments)
-    routes = find_routes(G, origin, destination)
-    return routes
+    """
+    Provide route guidance between origin and destination.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing SCATS data.
+        street_segments (dict): Dictionary of street segments with traffic information.
+        origin (str): Origin SCATS number.
+        destination (str): Destination SCATS number.
+    
+    Returns:
+        list: List of dictionaries containing route information.
+    
+    Raises:
+        ValueError: If the graph creation fails or if route finding encounters an error.
+    """
+    try:
+        G = create_graph(df, street_segments)
+        if G is None:
+            raise ValueError("Failed to create the graph.")
+        
+        routes = find_routes(G, origin, destination)
+        return routes
+    except Exception as e:
+        logger.error(f"An error occurred in route guidance: {str(e)}")
+        raise ValueError(f"Route guidance failed: {str(e)}")
