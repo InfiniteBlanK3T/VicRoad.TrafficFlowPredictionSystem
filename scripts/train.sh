@@ -11,3 +11,5 @@ python main/src/train_model.py --model bilstm --n_scats 5
 # python src/train_model.py --model cnnlstm --n_scats all
 # python src/train_model.py --model bilstm --n_scats all
 
+spd-say "training done"
+notify-send "training done"
