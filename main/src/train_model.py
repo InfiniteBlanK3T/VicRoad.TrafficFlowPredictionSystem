@@ -1,5 +1,6 @@
 import sys
 import os
+
 from pathlib import Path
 # Add the root directory to the Python path
 root_dir = Path(__file__).resolve().parent.parent
@@ -19,15 +20,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load configuration
-try:
-    with open('config.yml', 'r') as config_file:
-        config = yaml.safe_load(config_file)
-except FileNotFoundError:
-    logger.error("config.yml file not found.")
-    sys.exit(1)
-except yaml.YAMLError as e:
-    logger.error(f"Error parsing config.yml: {str(e)}")
-    sys.exit(1)
+config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.yml')
+
+with open(config_path, 'r') as config_file:
+    config = yaml.safe_load(config_file)
 
 def train_model(model, X_train, y_train, name, scats, config):
     """
