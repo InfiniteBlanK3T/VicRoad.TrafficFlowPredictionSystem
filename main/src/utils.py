@@ -16,12 +16,37 @@ def format_prediction_result(
         f"{'Difference:':>10} {abs(prediction - actual):.2f} vehicles"
     )
 
-def format_route_result(routes: List[Dict]) -> str:
-    """Format the route guidance results as a string."""
+def format_route_result(routes, df):
+    """
+    Format the route guidance results as a string with street names.
+    
+    Args:
+        routes (list): List of route dictionaries
+        df (pd.DataFrame): DataFrame containing SCATS data
+        
+    Returns:
+        str: Formatted route information
+    """
     result = ""
     for i, route in enumerate(routes, 1):
+        # Get the street names for each SCATS number in the path
+        path_details = []
+        for scats in route['path']:
+            scats_data = df[df['SCATS Number'] == int(scats)].iloc[0]
+            intersection = scats_data['Location'].replace('_', ' ').replace('/', ' & ')
+            path_details.append(intersection)
+            
         result += f"Route {i}:\n"
-        result += f"Path: {' -> '.join(route['path'])}\n"
-        result += f"Estimated time: {route['time']:.2f} minutes\n"
+        result += "Path:\n"
+        for j, intersection in enumerate(path_details):
+            if j == 0:
+                result += f"  Start: {intersection}\n"
+            elif j == len(path_details) - 1:
+                result += f"  End: {intersection}\n"
+            else:
+                result += f"  Via: {intersection}\n"
+                
+        result += f"Estimated time: {route['time']:.1f} minutes\n"
         result += f"Distance: {route['distance']:.2f} km\n\n"
+    
     return result

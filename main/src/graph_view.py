@@ -19,9 +19,10 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.figure import Figure
 from matplotlib import dates as mdates
 
-from data.dataSCATSMap import process_data, prepare_model_data, create_traffic_map
+from data.dataSCATSMap import process_data, prepare_model_data
 from src.route_guidance import route_guidance
 from src.utils import format_route_result
+from src.map_utils import create_multi_route_map
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -586,7 +587,7 @@ class TFPSGUI:
 
     def show_map(self):
         """
-        Display the traffic map.
+        Display the initial map view.
         """
         if not self.data_loaded:
             messagebox.showinfo("Data Loading", "Please wait while the data is being loaded.")
@@ -594,11 +595,12 @@ class TFPSGUI:
         
         try:
             if self.map is None:
-                if self.df is None or self.street_segments is None:
-                    raise ValueError("Data not loaded. Please check the console for errors.")
-                self.map = create_traffic_map(self.df, self.street_segments)
-
-            if self.map_file:
+                # Create an initial centered map of the area
+                center_lat = self.df['NB_LATITUDE'].mean()
+                center_lon = self.df['NB_LONGITUDE'].mean()
+                self.map = folium.Map(location=[center_lat, center_lon], zoom_start=13)
+                
+            if self.map_file and os.path.exists(self.map_file):
                 os.unlink(self.map_file)
 
             _, self.map_file = tempfile.mkstemp(suffix='.html')
@@ -607,11 +609,12 @@ class TFPSGUI:
 
         except Exception as e:
             logger.exception(f"Error creating map: {str(e)}")
-            messagebox.showerror("Map Creation Error", f"An error occurred while creating the map: {str(e)}")
+            messagebox.showerror("Map Error", str(e))
+
 
     def find_and_display_routes(self):
         """
-        Find routes and display them on the map.
+        Find and display multiple routes on the map.
         """
         if not self.data_loaded:
             messagebox.showerror("Data Not Loaded", "Data has not been loaded. Please check the console for errors.")
@@ -625,13 +628,26 @@ class TFPSGUI:
                 return
 
             routes = route_guidance(self.df, self.street_segments, origin, destination)
+            
+            # Sort routes by distance (you could also sort by time if preferred)
+            routes.sort(key=lambda x: x['distance'])
 
+            # Update route text display with enhanced formatting
             self.route_text.config(state=tk.NORMAL)
             self.route_text.delete("1.0", tk.END)
-            self.route_text.insert(tk.END, format_route_result(routes))
+            self.route_text.insert(tk.END, format_route_result(routes, self.df))
             self.route_text.config(state=tk.DISABLED)
 
-            self.update_map_with_route(routes[0]['path'])  # Display the first (best) route on the map
+            # Create or update the map with all routes
+            if self.map_file and os.path.exists(self.map_file):
+                os.unlink(self.map_file)
+
+            self.map = create_multi_route_map(self.df, routes, origin, destination)
+            
+            if self.map:
+                _, self.map_file = tempfile.mkstemp(suffix='.html')
+                self.map.save(self.map_file)
+                webbrowser.open('file://' + self.map_file)
 
         except ValueError as e:
             logger.exception(f"Route finding error: {str(e)}")
