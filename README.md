@@ -42,6 +42,9 @@ I have created `scripts/setup_dev_env.sh` to automate process above assuming tha
 `./scripts/setup_dev_env.sh`
 
 ## Graphs
+### v1.0 22th Oct
+![image](https://github.com/user-attachments/assets/0ea69a40-5553-4766-8550-11f704ae54f2)
+
 ### v0.2 12th Oct
 ![Screenshot 2024-10-17 at 14 39 55](https://github.com/user-attachments/assets/1eae5d94-8633-4079-aa73-705b5f64a7ab)
 
