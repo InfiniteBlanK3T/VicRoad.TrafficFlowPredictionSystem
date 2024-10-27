@@ -569,6 +569,9 @@ class TFPSGUI:
                 )
                 return
 
+            # Route calculation flow
+            origin = 2000  # WARRIGAL_RD/TOORAK_RD
+            destination = 3002  # DENMARK_ST/BARKERS_RD
             routes = route_guidance(self.df, self.street_segments, origin, destination)
 
             self.route_text.config(state=tk.NORMAL)
@@ -620,6 +623,7 @@ class TFPSGUI:
             messagebox.showerror("Data Not Loaded", "Data has not been loaded. Please check the console for errors.")
             return
         try:
+            # 1. Validate inputs
             origin = self.origin_var.get()
             destination = self.destination_var.get()
 
@@ -627,6 +631,7 @@ class TFPSGUI:
                 messagebox.showerror("Input Error", "Please select both origin and destination SCATS numbers.")
                 return
 
+            # 2. Calculate routes
             routes = route_guidance(self.df, self.street_segments, origin, destination)
             
             # Sort routes by distance (you could also sort by time if preferred)
@@ -642,6 +647,7 @@ class TFPSGUI:
             if self.map_file and os.path.exists(self.map_file):
                 os.unlink(self.map_file)
 
+            # 3. Update visualization
             self.map = create_multi_route_map(self.df, routes, origin, destination)
             
             if self.map:

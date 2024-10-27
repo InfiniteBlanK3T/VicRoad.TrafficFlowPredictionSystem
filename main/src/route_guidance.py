@@ -251,23 +251,3 @@ def create_route_map(df, route, origin, destination):
         logger.error(f"An error occurred while creating the route map: {str(e)}")
         return None
     
-def route_guidance(df, street_segments, origin, destination):
-    """
-    Provide route guidance between origin and destination.
-    """
-    try:
-        G = create_graph(df, street_segments)
-        if G is None:
-            raise ValueError("Failed to create the graph.")
-        
-        routes = find_routes(G, origin, destination)
-        
-        # Create map for the first (best) route
-        route_map = create_route_map(df, routes[0]['path'], origin, destination)
-        if route_map:
-            route_map.save('route_map.html')
-        
-        return routes
-    except Exception as e:
-        logger.error(f"An error occurred in route guidance: {str(e)}")
-        raise ValueError(f"Route guidance failed: {str(e)}")

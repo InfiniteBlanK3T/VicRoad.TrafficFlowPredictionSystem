@@ -47,7 +47,8 @@ def train_model(model, X_train, y_train, name, scats, config):
 
         model_save_path = f"{config['training']['model_save_path']}/{name}_{scats}.h5"
         model.save(model_save_path)
-        pd.DataFrame.from_dict(hist.history).to_csv(f"{config['training']['model_save_path']}/{name}_{scats}_loss.csv", encoding='utf-8', index=False)
+        pd.DataFrame.from_dict(hist.history).to_csv(f"{config['training']['model_save_path']}/{name}_{scats}_loss.csv",
+                                                    encoding='utf-8', index=False)
         logger.info(f"Model {name} for SCATS {scats} trained and saved successfully.")
     except Exception as e:
         logger.error(f"Error training model {name} for SCATS {scats}: {str(e)}")
@@ -100,6 +101,7 @@ def parse_n_scats(value):
         raise argparse.ArgumentTypeError("n_scats must be 'all' or an integer")
     
 def main():
+
     os.makedirs(config['training']['model_save_path'], exist_ok=True)
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="lstm", help="Model to train: lstm, gru, bilstm, cnnlstm, saes")
@@ -110,9 +112,11 @@ def main():
     file_path = config['data']['file_path']
     
     try:
+        # 1. Data preparation
         df_melted, scaler, street_segments = process_data(file_path, lag, n_scats=args.n_scats)
         data_dict = prepare_model_data(df_melted, sequence_length=lag)
 
+        # 2. Model training
         for scats, data in data_dict.items():
             X_train, y_train = data['X_train'], data['y_train']
 
