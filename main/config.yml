@@ -1,7 +1,7 @@
 data:
   file_path: 'Scats-Data-October-2006-Bundoora.csv'
   lag: 12
-  n_scats_options: [5, 10, 'all']
+  n_scats_options: ['all', 10, 5]
 
 gui:
   window_size: '1400x800'
